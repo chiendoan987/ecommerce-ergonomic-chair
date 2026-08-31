@@ -1,15 +1,15 @@
-const products = [
-  { name: "Ergo Pro X1", price: "8.490.000đ", rating: "4.9", image: "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=900&q=85", tag: "Bán chạy" },
-  { name: "Cloud Mesh Air", price: "6.290.000đ", rating: "4.8", image: "https://images.unsplash.com/photo-1596162954151-cdcb4c0f70a8?auto=format&fit=crop&w=900&q=85", tag: "Mới về" },
-  { name: "Executive Oak", price: "12.990.000đ", rating: "5.0", image: "https://images.unsplash.com/photo-1503602642458-232111445657?auto=format&fit=crop&w=900&q=85", tag: "Cao cấp" },
-  { name: "Motion Lite", price: "4.890.000đ", rating: "4.7", image: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=900&q=85", tag: "Tiết kiệm" },
-];
+"use client";
+
+import Link from "next/link";
+import { useState } from "react";
+import { useCart } from "@/components/cart-provider";
+import { formatPrice, products, type Product } from "@/lib/products";
 
 const categories = [
-  { name: "Ghế văn phòng", count: "24 sản phẩm", image: "https://images.unsplash.com/photo-1592078615290-033ee584e267?auto=format&fit=crop&w=900&q=85" },
-  { name: "Ghế gaming", count: "12 sản phẩm", image: "https://images.unsplash.com/photo-1598550476439-6847785fcea6?auto=format&fit=crop&w=900&q=85" },
-  { name: "Ghế cao cấp", count: "08 sản phẩm", image: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=900&q=85" },
-  { name: "Ghế lưng lưới", count: "18 sản phẩm", image: "https://images.unsplash.com/photo-1580480055273-228ff5388ef8?auto=format&fit=crop&w=900&q=85" },
+  { name: "Ghế công thái học", count: "Khám phá thiết kế", image: products[0].image },
+  { name: "Ghế văn phòng", count: "Làm việc tập trung", image: products[7].image },
+  { name: "Ghế gaming", count: "Chơi theo cách của bạn", image: products[4].image },
+  { name: "Phụ kiện", count: "Hoàn thiện góc làm việc", image: products[1].image },
 ];
 
 function Icon({ name }: { name: "arrow" | "bag" | "check" | "search" | "menu" }) {
@@ -23,17 +23,45 @@ function Icon({ name }: { name: "arrow" | "bag" | "check" | "search" | "menu" })
   return <svg aria-hidden="true" className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">{paths[name]}</svg>;
 }
 
+function ProductCard({ product, index, onAdded }: { product: Product; index: number; onAdded: (name: string) => void }) {
+  const { addItem } = useCart();
+  const salePercent = Math.round((1 - product.price / product.oldPrice) * 100);
+
+  return <article className="home-product-card">
+    <Link className="home-product-image" href={`/products/${product.id}`}>
+      <img src={product.image} alt={product.name} />
+      <span className={product.inStock ? "home-badge" : "home-badge home-badge-muted"}>{index === 0 ? "Bán chạy" : product.inStock ? `-${salePercent}%` : "Tạm hết hàng"}</span>
+      <span className="home-product-arrow"><Icon name="arrow" /></span>
+    </Link>
+    <div className="home-product-info">
+      <p>{product.category}</p>
+      <Link href={`/products/${product.id}`}><h3>{product.name}</h3></Link>
+      <div className="home-rating"><span>★★★★★</span> {product.rating} <small>({product.reviewCount})</small></div>
+      <div className="home-price"><strong>{formatPrice(product.price)}</strong><del>{formatPrice(product.oldPrice)}</del><button type="button" disabled={!product.inStock} onClick={() => { addItem(product); onAdded(product.name); }} aria-label={`Thêm ${product.name} vào giỏ hàng`}><Icon name="bag" /></button></div>
+    </div>
+  </article>;
+}
+
 export default function Home() {
-  return <div className="site-shell">
-    <header className="site-header"><a className="logo" href="#top"><span className="logo-mark">e</span> ErgoChair</a><nav><a className="active" href="#top">Trang chủ</a><a href="#products">Sản phẩm</a><a href="#about">Về chúng tôi</a></nav><div className="header-actions"><button aria-label="Tìm kiếm"><Icon name="search" /></button><a className="cart" href="#cart" aria-label="Giỏ hàng"><Icon name="bag" /><span>0</span></a><a className="login" href="#login">Đăng nhập</a><button className="mobile-menu" aria-label="Mở menu"><Icon name="menu" /></button></div></header>
+  const { itemCount } = useCart();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [toast, setToast] = useState("");
+
+  const showToast = (name: string) => {
+    setToast(`${name} đã được thêm vào giỏ hàng`);
+    window.setTimeout(() => setToast(""), 2400);
+  };
+
+  return <div className="site-shell home-page">
+    <header className="site-header"><Link className="logo" href="#top"><span className="logo-mark">e</span> ErgoChair</Link><nav className={menuOpen ? "open" : ""}><Link className="active" href="#top" onClick={() => setMenuOpen(false)}>Trang chủ</Link><Link href="#products" onClick={() => setMenuOpen(false)}>Sản phẩm</Link><Link href="#categories" onClick={() => setMenuOpen(false)}>Danh mục</Link><Link href="#about" onClick={() => setMenuOpen(false)}>Về chúng tôi</Link></nav><div className="header-actions"><button aria-label="Tìm kiếm"><Icon name="search" /></button><Link className="cart" href="/cart" aria-label="Giỏ hàng"><Icon name="bag" />{itemCount > 0 && <span key={itemCount}>{itemCount}</span>}</Link><Link className="login" href="/products">Mua sắm</Link><button className="mobile-menu" aria-label="Mở menu" onClick={() => setMenuOpen(!menuOpen)}><Icon name="menu" /></button></div></header>
     <main id="top">
-      <section className="hero"><div className="hero-copy"><p className="eyebrow">THIẾT KẾ CHO NHỊP SỐNG CỦA BẠN</p><h1>Ghế công thái học<br /><em>Ngồi đúng, sống khỏe</em></h1><p className="hero-description">Tìm lại sự thoải mái trong từng giờ làm việc với những chiếc ghế được thiết kế để nâng đỡ bạn.</p><div className="hero-actions"><a className="button button-dark" href="#products">Khám phá sản phẩm <Icon name="arrow" /></a><a className="text-link" href="#about">Tìm hiểu thêm <Icon name="arrow" /></a></div><div className="hero-proof"><div className="avatars"><span>TN</span><span>MA</span><span>LK</span></div><p><strong>10.000+</strong><br />khách hàng tin chọn</p></div></div><div className="hero-visual"><div className="hero-image" role="img" aria-label="Ghế công thái học màu đen trong không gian hiện đại" /><div className="hero-note"><span className="note-icon"><Icon name="check" /></span><p><strong>Thoải mái cả ngày</strong><br />Nâng đỡ chuẩn công thái học</p></div><span className="hero-number">01 <i>/ 04</i></span></div></section>
-      <section className="trust-strip"><p>Được tin dùng bởi những đội ngũ hiện đại</p><div><strong>nord</strong><strong>monday</strong><strong>vertex</strong><strong>studio<span>03</span></strong><strong>MUZE</strong></div></section>
-      <section className="section products-section" id="products"><div className="section-heading"><div><p className="eyebrow">LỰA CHỌN CỦA BẠN</p><h2>Sản phẩm nổi bật</h2></div><a className="text-link" href="#all-products">Xem tất cả sản phẩm <Icon name="arrow" /></a></div><div className="product-grid">{products.map((product) => <article className="product-card" key={product.name}><div className="product-image" style={{ backgroundImage: `url(${product.image})` }}><span>{product.tag}</span><button aria-label={`Thêm ${product.name} vào danh sách yêu thích`}>♡</button></div><div className="product-info"><div className="rating"><span>★ ★ ★ ★ ★</span> {product.rating}</div><h3>{product.name}</h3><div className="product-bottom"><strong>{product.price}</strong><button className="add-button" aria-label={`Thêm ${product.name} vào giỏ hàng`}><Icon name="bag" /></button></div></div></article>)}</div></section>
-      <section className="section categories-section"><div className="section-heading"><div><p className="eyebrow">TÌM THEO NHU CẦU</p><h2>Không gian, phong cách<br />của riêng bạn</h2></div><p className="heading-note">Mỗi tư thế đều xứng đáng<br />được chăm sóc đúng cách.</p></div><div className="category-grid">{categories.map((category, index) => <a className={`category-card category-${index + 1}`} href="#products" key={category.name}><div style={{ backgroundImage: `url(${category.image})` }} /><span><strong>{category.name}</strong><small>{category.count}</small></span><b><Icon name="arrow" /></b></a>)}</div></section>
-      <section className="why-section" id="about"><div className="why-intro"><p className="eyebrow">LÝ DO BẠN SẼ YÊU</p><h2>Không chỉ là<br /><em>một chiếc ghế.</em></h2><p>Chúng tôi tin rằng cảm giác thoải mái là nền tảng cho những ý tưởng tuyệt vời.</p><a className="button button-light" href="#story">Câu chuyện ErgoChair <Icon name="arrow" /></a></div><div className="benefit-grid"><div><span>01</span><h3>Thiết kế<br />công thái học</h3><p>Hỗ trợ cột sống tự nhiên, giảm áp lực lên cơ thể.</p></div><div><span>02</span><h3>Chất liệu<br />cao cấp</h3><p>Bền bỉ, thoáng khí và thân thiện với làn da.</p></div><div><span>03</span><h3>Bảo hành<br />chính hãng</h3><p>An tâm sử dụng với chính sách bảo hành 5 năm.</p></div><div><span>04</span><h3>Giao hàng<br />toàn quốc</h3><p>Miễn phí vận chuyển, lắp đặt tận nơi.</p></div></div></section>
+      <section className="home-hero"><div className="home-hero-copy"><p className="eyebrow">BỘ SƯU TẬP 2026 / ERGOCHAIR</p><h1>Ghế công thái học<br /><em>cho một ngày tốt hơn.</em></h1><p>Thiết kế cho tư thế tốt hơn. Làm việc thoải mái hơn mỗi ngày.</p><div className="home-hero-actions"><Link className="button button-dark" href="#products">Khám phá sản phẩm <Icon name="arrow" /></Link><Link className="text-link" href="#categories">Xem theo danh mục <Icon name="arrow" /></Link></div><div className="home-stat"><strong>10.000+</strong><span>người đang ngồi<br />thoải mái hơn</span></div></div><div className="home-hero-visual"><img src={products[0].image} alt="Ghế Ergo Pro X1 trong không gian làm việc hiện đại" /><div><span>01</span><p>Ergo Pro X1<br /><small>Thiết kế chủ đạo</small></p></div></div></section>
+      <section className="home-trust"><span>Được lựa chọn bởi</span><strong>nord</strong><strong>monday</strong><strong>vertex</strong><strong>studio03</strong><strong>MUZE</strong></section>
+      <section className="home-section" id="products"><div className="home-section-heading"><div><p className="eyebrow">LỰA CHỌN CỦA BẠN</p><h2>Sản phẩm nổi bật</h2></div><Link className="text-link" href="/products">Xem tất cả sản phẩm <Icon name="arrow" /></Link></div><div className="home-product-grid">{products.slice(0, 4).map((product, index) => <ProductCard key={product.id} product={product} index={index} onAdded={showToast} />)}</div></section>
+      <section className="home-section home-categories" id="categories"><div className="home-section-heading"><div><p className="eyebrow">TÌM THEO NHU CẦU</p><h2>Không gian, phong cách<br />của riêng bạn</h2></div><p>Một chiếc ghế tốt bắt đầu<br />từ cách bạn muốn sống.</p></div><div className="home-category-grid">{categories.map((category, index) => <Link className={`home-category home-category-${index + 1}`} href="/products" key={category.name}><img src={category.image} alt={category.name} /><span><strong>{category.name}</strong><small>{category.count}</small></span><b><Icon name="arrow" /></b></Link>)}</div></section>
+      <section className="why-section" id="about"><div className="why-intro"><p className="eyebrow">LÝ DO BẠN SẼ YÊU</p><h2>Không chỉ là<br /><em>một chiếc ghế.</em></h2><p>Chúng tôi tin rằng cảm giác thoải mái là nền tảng cho những ý tưởng tuyệt vời.</p><Link className="button button-light" href="/products">Câu chuyện ErgoChair <Icon name="arrow" /></Link></div><div className="benefit-grid"><div><span>01</span><h3>Thiết kế<br />công thái học</h3><p>Hỗ trợ cột sống tự nhiên, giảm áp lực lên cơ thể.</p></div><div><span>02</span><h3>Bảo hành<br />chính hãng</h3><p>An tâm sử dụng với chính sách bảo hành 5 năm.</p></div><div><span>03</span><h3>Giao hàng<br />toàn quốc</h3><p>Miễn phí vận chuyển, lắp đặt tận nơi.</p></div><div><span>04</span><h3>Tư vấn<br />tận tâm</h3><p>Đội ngũ đồng hành để bạn chọn đúng chiếc ghế.</p></div></div></section>
       <section className="section reviews-section"><div className="section-heading"><div><p className="eyebrow">KHÁCH HÀNG NÓI GÌ</p><h2>Được tạo ra để<br />được yêu thích.</h2></div><div className="review-score"><strong>4.9</strong><span>★★★★★<small>từ 2.400+ đánh giá</small></span></div></div><div className="review-grid"><blockquote><div>★★★★★</div><p>“Sau 8 tiếng làm việc, lưng tôi vẫn nhẹ tênh. Ergo Pro X1 thực sự thay đổi cách tôi làm việc mỗi ngày.”</p><footer><span>NT</span><strong>Ngọc Trâm<small>Designer, Hà Nội</small></strong></footer></blockquote><blockquote><div>★★★★★</div><p>“Thiết kế đẹp, lắp đặt nhanh và cảm giác ngồi rất chắc chắn. Đáng tiền hơn nhiều so với những gì tôi kỳ vọng.”</p><footer><span>MQ</span><strong>Minh Quân<small>Founder, TP. Hồ Chí Minh</small></strong></footer></blockquote><blockquote><div>★★★★★</div><p>“Góc làm việc của tôi trông hẳn khác đi. Ghế vừa êm vừa thoáng, đặc biệt là vào những ngày hè.”</p><footer><span>HL</span><strong>Hoài Linh<small>Content Creator, Đà Nẵng</small></strong></footer></blockquote></div></section>
     </main>
-    <footer className="site-footer"><div className="footer-top"><div className="footer-brand"><a className="logo" href="#top"><span className="logo-mark">e</span> ErgoChair</a><p>Ngồi đúng hôm nay,<br />sống khỏe mỗi ngày.</p><div className="socials"><a href="#facebook">f</a><a href="#instagram">◎</a><a href="#linkedin">in</a></div></div><div><h4>Khám phá</h4><a href="#products">Tất cả sản phẩm</a><a href="#office">Ghế văn phòng</a><a href="#gaming">Ghế gaming</a><a href="#premium">Ghế cao cấp</a></div><div><h4>Hỗ trợ</h4><a href="#shipping">Vận chuyển & lắp đặt</a><a href="#warranty">Chính sách bảo hành</a><a href="#returns">Đổi trả sản phẩm</a><a href="#faq">Câu hỏi thường gặp</a></div><div className="footer-contact"><h4>Ghé thăm chúng tôi</h4><p>36 Nguyễn Cơ Thạch, Nam Từ Liêm<br />Hà Nội, Việt Nam</p><a href="mailto:hello@ergochair.vn">hello@ergochair.vn</a><a href="tel:18006868">1800 6868</a></div></div><div className="footer-bottom"><span>© 2024 ErgoChair. All rights reserved.</span><span>Made for better living.</span></div></footer>
+    <footer className="site-footer"><div className="footer-top"><div className="footer-brand"><Link className="logo" href="#top"><span className="logo-mark">e</span> ErgoChair</Link><p>Ngồi đúng hôm nay,<br />sống khỏe mỗi ngày.</p><div className="socials"><a href="#facebook" aria-label="Facebook">f</a><a href="#instagram" aria-label="Instagram">◎</a><a href="#linkedin" aria-label="LinkedIn">in</a></div></div><div><h4>Khám phá</h4><Link href="/products">Tất cả sản phẩm</Link><Link href="/products">Ghế văn phòng</Link><Link href="/products">Ghế gaming</Link><Link href="/products">Ghế cao cấp</Link></div><div><h4>Hỗ trợ</h4><a href="#shipping">Vận chuyển & lắp đặt</a><a href="#warranty">Chính sách bảo hành</a><a href="#returns">Đổi trả sản phẩm</a><a href="#faq">Câu hỏi thường gặp</a></div><div className="footer-contact"><h4>Ghé thăm chúng tôi</h4><p>36 Nguyễn Cơ Thạch, Nam Từ Liêm<br />Hà Nội, Việt Nam</p><a href="mailto:hello@ergochair.vn">hello@ergochair.vn</a><a href="tel:18006868">1800 6868</a></div></div><div className="footer-bottom"><span>© 2026 ErgoChair. All rights reserved.</span><span>Made for better living.</span></div></footer>{toast && <div className="cart-toast" role="status">Đã thêm sản phẩm vào giỏ hàng</div>}
   </div>;
 }
