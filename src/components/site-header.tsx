@@ -37,7 +37,7 @@ export function SiteHeader() {
       <Link className={isActive("/products") ? "active" : ""} href="/products" onClick={closeMenus}>Sản phẩm</Link>
       <div className={`nav-dropdown ${categoriesOpen ? "open" : ""}`} onMouseEnter={() => setCategoriesOpen(true)} onMouseLeave={() => setCategoriesOpen(false)}>
         <button type="button" aria-expanded={categoriesOpen} onClick={() => setCategoriesOpen(!categoriesOpen)}>Danh mục <Icon name="chevron" /></button>
-        <div className="nav-dropdown-menu"><Link href="/products?category=Ghế+công+thái+học" onClick={closeMenus}>Ghế công thái học</Link><Link href="/products?category=Ghế+văn+phòng" onClick={closeMenus}>Ghế văn phòng</Link><Link href="/products?category=Ghế+gaming" onClick={closeMenus}>Ghế gaming</Link><Link href="/products" onClick={closeMenus}>Phụ kiện</Link></div>
+        <div className="nav-dropdown-menu"><Link href="/products?category=Ghế+công+thái+học" onClick={closeMenus}>Ghế công thái học</Link><Link href="/products?category=Ghế+văn+phòng" onClick={closeMenus}>Ghế văn phòng</Link><Link href="/products?category=Ghế+gaming" onClick={closeMenus}>Ghế gaming</Link><Link href="/products?category=Ghế+lãnh+đạo" onClick={closeMenus}>Ghế lãnh đạo</Link></div>
       </div>
       <Link className={isActive("/about") ? "active" : ""} href="/about" onClick={closeMenus}>Về chúng tôi</Link>
       <Link className={isActive("/contact") ? "active" : ""} href="/contact" onClick={closeMenus}>Liên hệ</Link>

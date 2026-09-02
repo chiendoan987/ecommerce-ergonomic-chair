@@ -3,18 +3,31 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useCart } from "@/components/cart-provider";
 import { formatPrice, products, type Product } from "@/lib/products";
 
 type SortOption = "featured" | "price-asc" | "price-desc" | "rating";
-const categories = ["Tất cả loại ghế", "Ghế văn phòng", "Ghế gaming", "Ghế cao cấp", "Ghế lưng lưới"];
+
+const normalizeCategory = (value: string | null | undefined) => {
+  const normalizedValue = value ?? "";
+  if (normalizedValue === "Ghế lưng lưới") return "Ghế công thái học";
+  if (normalizedValue === "Ghế cao cấp" || normalizedValue === "Phụ kiện") return "Ghế lãnh đạo";
+  return normalizedValue;
+};
+
+const categories = ["Tất cả loại ghế", "Ghế công thái học", "Ghế văn phòng", "Ghế gaming", "Ghế lãnh đạo"];
 
 const categoryMeta: Record<string, { title: string; emoji: string; description: string }> = {
   "Tất cả loại ghế": {
     title: "Ghế công thái học",
     emoji: "cho nhịp sống hiện đại.",
     description: "Khám phá những thiết kế được tạo ra để mang lại sự thoải mái và hỗ trợ tốt hơn trong từng giờ làm việc.",
+  },
+  "Ghế công thái học": {
+    title: "Ghế công thái học",
+    emoji: "thoáng khí và nhẹ nhàng.",
+    description: "Thiết kế hỗ trợ tốt cho tư thế ngồi trong suốt cả ngày, kết hợp sự thoáng khí và độ chắc chắn tối ưu.",
   },
   "Ghế văn phòng": {
     title: "Ghế văn phòng",
@@ -26,15 +39,10 @@ const categoryMeta: Record<string, { title: string; emoji: string; description: 
     emoji: "hiệu năng tối đa.",
     description: "Ghế chuyên biệt cho những phiên gaming dài, với hỗ trợ lưng và tay vịn tối ưu.",
   },
-  "Ghế cao cấp": {
-    title: "Ghế cao cấp",
+  "Ghế lãnh đạo": {
+    title: "Ghế lãnh đạo",
     emoji: "sang trọng và tinh tế.",
     description: "Phiên bản premium với chất liệu tốt nhất, dành cho những không gian làm việc đẳng cấp.",
-  },
-  "Ghế lưng lưới": {
-    title: "Ghế lưng lưới",
-    emoji: "thoáng khí và nhẹ nhàng.",
-    description: "Thiết kế lưới thoáng khí cho mùa nóng, mang lại cảm giác mát mẻ suốt ngày.",
   },
 };
 
@@ -202,8 +210,9 @@ function Filters({
 function ProductsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const requestedCategory = searchParams.get("category");
-  const [category, setCategory] = useState(categories.includes(requestedCategory ?? "") ? requestedCategory ?? categories[0] : categories[0]);
+  const requestedCategory = normalizeCategory(searchParams.get("category"));
+  const category = categories.includes(requestedCategory ?? "") ? (requestedCategory ?? categories[0]) : categories[0];
+
   const [priceRange, setPriceRange] = useState("all");
   const [availability, setAvailability] = useState("all");
   const [sort, setSort] = useState<SortOption>("featured");
@@ -212,7 +221,6 @@ function ProductsPageContent() {
   const { itemCount } = useCart();
 
   const handleCategoryChange = (newCategory: string) => {
-    setCategory(newCategory);
     if (newCategory !== categories[0]) {
       router.push(`/products?category=${encodeURIComponent(newCategory)}`);
     } else {
@@ -221,7 +229,6 @@ function ProductsPageContent() {
   };
 
   const resetFilters = () => { 
-    setCategory(categories[0]); 
     setPriceRange("all"); 
     setAvailability("all");
     router.push("/products");
@@ -241,11 +248,28 @@ function ProductsPageContent() {
   const meta = categoryMeta[category] || categoryMeta["Tất cả loại ghế"];
 
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
-  
+  const categoryDropdownRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!categoryDropdownOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(target)) {
+        setCategoryDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [categoryDropdownOpen]);
+
   const categoryDropdownItems = categories.filter(c => c !== categories[0]);
 
   return <div className="catalog-page catalog-page-premium">
-    <header className="catalog-header"><Link className="logo" href="/"><span className="logo-mark">e</span> ErgoChair</Link><nav><Link href="/">Trang chủ</Link><Link className="active" href="/products">Sản phẩm</Link><div className={`nav-dropdown ${categoryDropdownOpen ? "open" : ""}`} onMouseEnter={() => setCategoryDropdownOpen(true)} onMouseLeave={() => setCategoryDropdownOpen(false)}><button type="button" className="nav-dropdown-toggle" onClick={() => setCategoryDropdownOpen(!categoryDropdownOpen)} aria-expanded={categoryDropdownOpen}>Danh mục <span className="dropdown-arrow">▼</span></button><div className="nav-dropdown-menu">{categoryDropdownItems.map((cat) => <button key={cat} type="button" className="nav-dropdown-item" onClick={() => { handleCategoryChange(cat); setCategoryDropdownOpen(false); }}>{cat}</button>)}</div></div><Link href="/#about">Về chúng tôi</Link></nav><div className="catalog-header-actions"><button type="button" aria-label="Tìm kiếm"><span aria-hidden="true">⌕</span></button><Link className="catalog-cart" href="/cart" aria-label="Giỏ hàng"><span aria-hidden="true">⌑</span>{itemCount > 0 && <b key={itemCount}>{itemCount}</b>}</Link><Link className="catalog-shop-link" href="/products">Mua sắm</Link></div></header>
+    <header className="catalog-header"><Link className="logo" href="/"><span className="logo-mark">e</span> ErgoChair</Link><nav><Link href="/">Trang chủ</Link><Link className="active" href="/products">Sản phẩm</Link><div ref={categoryDropdownRef} className={`nav-dropdown ${categoryDropdownOpen ? "open" : ""}`} onMouseEnter={() => setCategoryDropdownOpen(true)} onMouseLeave={() => setCategoryDropdownOpen(false)}><button type="button" className="nav-dropdown-toggle" onClick={() => setCategoryDropdownOpen((prev) => !prev)} aria-expanded={categoryDropdownOpen}>Danh mục <span className="dropdown-arrow">▼</span></button><div className="nav-dropdown-menu">{categoryDropdownItems.map((cat) => <button key={cat} type="button" className="nav-dropdown-item" onClick={() => { handleCategoryChange(cat); setCategoryDropdownOpen(false); }}>{cat}</button>)}</div></div><Link href="/#about">Về chúng tôi</Link></nav><div className="catalog-header-actions"><button type="button" aria-label="Tìm kiếm"><span aria-hidden="true">⌕</span></button><Link className="catalog-cart" href="/cart" aria-label="Giỏ hàng"><span aria-hidden="true">⌑</span>{itemCount > 0 && <b key={itemCount}>{itemCount}</b>}</Link><Link className="catalog-shop-link" href="/products">Mua sắm</Link></div></header>
     <div className="catalog-breadcrumb"><Link href="/">Trang chủ</Link><span>/</span><strong>Sản phẩm</strong></div>
     <header className="catalog-hero catalog-hero-premium"><div><p className="eyebrow">BỘ SƯU TẬP ERGOCHAIR / 2026</p><h1>{meta.title}<br /><em>{meta.emoji}</em></h1><p>{meta.description}</p></div><div className="catalog-hero-count"><strong>{visibleProducts.length}</strong><span>sản phẩm<br />được tuyển chọn</span></div></header>
     <main className="catalog-main catalog-main-premium">
