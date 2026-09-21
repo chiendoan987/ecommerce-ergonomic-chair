@@ -5,7 +5,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useCart } from "@/components/cart-provider";
+import { ProductSearch } from "@/components/product-search";
 import { formatPrice, products, type Product } from "@/lib/products";
+import { normalizeSearchText } from "@/lib/search";
 
 type SortOption = "featured" | "price-asc" | "price-desc" | "rating";
 
@@ -224,6 +226,8 @@ function ProductsPageContent() {
   const searchParams = useSearchParams();
   const requestedCategory = normalizeCategory(searchParams.get("category"));
   const category = categories.includes(requestedCategory ?? "") ? (requestedCategory ?? categories[0]) : categories[0];
+  const searchKeyword = searchParams.get("search")?.trim() ?? "";
+  const normalizedSearch = normalizeSearchText(searchKeyword);
 
   const [priceRange, setPriceRange] = useState("all");
   const [availability, setAvailability] = useState("all");
@@ -233,11 +237,14 @@ function ProductsPageContent() {
   const { itemCount } = useCart();
 
   const handleCategoryChange = (newCategory: string) => {
+    const params = new URLSearchParams(searchParams.toString());
     if (newCategory !== categories[0]) {
-      router.push(`/products?category=${encodeURIComponent(newCategory)}`);
+      params.set("category", newCategory);
     } else {
-      router.push("/products");
+      params.delete("category");
     }
+    const query = params.toString();
+    router.push(`/products${query ? `?${query}` : ""}`);
   };
 
   const resetFilters = () => { 
@@ -246,16 +253,24 @@ function ProductsPageContent() {
     router.push("/products");
   };
 
+  const clearSearch = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("search");
+    const query = params.toString();
+    router.push(`/products${query ? `?${query}` : ""}`);
+  };
+
   const showToast = (name: string) => { setToast(`${name} đã được thêm vào giỏ hàng`); window.setTimeout(() => setToast(""), 2400); };
   const visibleProducts = useMemo(() => {
     const filtered = products.filter((product) => {
+      const searchMatches = !normalizedSearch || [product.name, product.category, product.description, product.material, product.color].some((field) => normalizeSearchText(field).includes(normalizedSearch));
       const categoryMatches = category === categories[0] || product.category === category;
       const priceMatches = priceRange === "all" || (priceRange === "under-6" ? product.price < 6000000 : priceRange === "6-to-10" ? product.price >= 6000000 && product.price <= 10000000 : product.price > 10000000);
       const availabilityMatches = availability === "all" || (availability === "in-stock" ? product.inStock : !product.inStock);
-      return categoryMatches && priceMatches && availabilityMatches;
+      return searchMatches && categoryMatches && priceMatches && availabilityMatches;
     });
     return [...filtered].sort((first, second) => sort === "price-asc" ? first.price - second.price : sort === "price-desc" ? second.price - first.price : sort === "rating" ? second.rating - first.rating : 0);
-  }, [availability, category, priceRange, sort]);
+  }, [availability, category, normalizedSearch, priceRange, sort]);
 
   const meta = categoryMeta[category] || categoryMeta["Tất cả loại ghế"];
 
@@ -281,12 +296,12 @@ function ProductsPageContent() {
   const categoryDropdownItems = categories.filter(c => c !== categories[0]);
 
   return <div className="catalog-page catalog-page-premium">
-    <header className="catalog-header"><Link className="logo" href="/"><span className="logo-mark">e</span> ErgoChair</Link><nav><Link href="/">Trang chủ</Link><Link className="active" href="/products">Sản phẩm</Link><div ref={categoryDropdownRef} className={`nav-dropdown ${categoryDropdownOpen ? "open" : ""}`} onMouseEnter={() => setCategoryDropdownOpen(true)} onMouseLeave={() => setCategoryDropdownOpen(false)}><button type="button" className="nav-dropdown-toggle" onClick={() => setCategoryDropdownOpen((prev) => !prev)} aria-expanded={categoryDropdownOpen}>Danh mục <span className="dropdown-arrow">▼</span></button><div className="nav-dropdown-menu">{categoryDropdownItems.map((cat) => <button key={cat} type="button" className="nav-dropdown-item" onClick={() => { handleCategoryChange(cat); setCategoryDropdownOpen(false); }}>{cat}</button>)}</div></div><Link href="/#about">Về chúng tôi</Link></nav><div className="catalog-header-actions"><button type="button" aria-label="Tìm kiếm"><span aria-hidden="true">⌕</span></button><Link className="catalog-cart" href="/cart" aria-label="Giỏ hàng"><span aria-hidden="true">⌑</span>{itemCount > 0 && <b key={itemCount}>{itemCount}</b>}</Link><Link className="catalog-shop-link" href="/products">Mua sắm</Link></div></header>
+    <header className="catalog-header"><Link className="logo" href="/"><span className="logo-mark">e</span> ErgoChair</Link><nav><Link href="/">Trang chủ</Link><Link className="active" href="/products">Sản phẩm</Link><div ref={categoryDropdownRef} className={`nav-dropdown ${categoryDropdownOpen ? "open" : ""}`} onMouseEnter={() => setCategoryDropdownOpen(true)} onMouseLeave={() => setCategoryDropdownOpen(false)}><button type="button" className="nav-dropdown-toggle" onClick={() => setCategoryDropdownOpen((prev) => !prev)} aria-expanded={categoryDropdownOpen}>Danh mục <span className="dropdown-arrow">▼</span></button><div className="nav-dropdown-menu">{categoryDropdownItems.map((cat) => <button key={cat} type="button" className="nav-dropdown-item" onClick={() => { handleCategoryChange(cat); setCategoryDropdownOpen(false); }}>{cat}</button>)}</div></div><Link href="/#about">Về chúng tôi</Link></nav><div className="catalog-header-actions"><ProductSearch key={searchKeyword} inputId="catalog-product-search-input" /><Link className="catalog-cart" href="/cart" aria-label="Giỏ hàng"><span aria-hidden="true">⌑</span>{itemCount > 0 && <b key={itemCount}>{itemCount}</b>}</Link><Link className="catalog-shop-link" href="/products">Mua sắm</Link></div></header>
     <div className="catalog-breadcrumb"><Link href="/">Trang chủ</Link><span>/</span><strong>Sản phẩm</strong></div>
-    <header className="catalog-hero catalog-hero-premium"><div><p className="eyebrow">BỘ SƯU TẬP ERGOCHAIR / 2026</p><h1>{meta.title}<br /><em>{meta.emoji}</em></h1><p>{meta.description}</p></div><div className="catalog-hero-count"><strong>{visibleProducts.length}</strong><span>sản phẩm<br />được tuyển chọn</span></div></header>
+    <header className="catalog-hero catalog-hero-premium"><div><p className="eyebrow">{searchKeyword ? "TÌM KIẾM SẢN PHẨM" : "BỘ SƯU TẬP ERGOCHAIR / 2026"}</p><h1>{searchKeyword ? <>Kết quả tìm kiếm<br /><em>cho “{searchKeyword}”.</em></> : <>{meta.title}<br /><em>{meta.emoji}</em></>}</h1><p>{searchKeyword ? `${visibleProducts.length} sản phẩm phù hợp với từ khóa của bạn.` : meta.description}</p></div><div className="catalog-hero-count"><strong>{visibleProducts.length}</strong><span>sản phẩm<br />được tuyển chọn</span></div></header>
     <main className="catalog-main catalog-main-premium">
-      <div className="catalog-toolbar catalog-toolbar-premium"><p><strong>{visibleProducts.length}</strong> sản phẩm</p><button className="catalog-filter-toggle" type="button" onClick={() => setFiltersOpen(!filtersOpen)}>Bộ lọc <span>{filtersOpen ? "−" : "+"}</span></button><label>Sắp xếp <select value={sort} onChange={(event) => setSort(event.target.value as SortOption)}><option value="featured">Nổi bật nhất</option><option value="price-asc">Giá thấp đến cao</option><option value="price-desc">Giá cao đến thấp</option><option value="rating">Đánh giá cao nhất</option></select></label></div>
-      <div className={`catalog-layout catalog-layout-premium ${filtersOpen ? "filters-visible" : ""}`}><Filters category={category} setCategory={handleCategoryChange} priceRange={priceRange} setPriceRange={setPriceRange} availability={availability} setAvailability={setAvailability} resetFilters={resetFilters} setFiltersOpen={setFiltersOpen} /><section className="catalog-results catalog-results-premium" aria-live="polite">{visibleProducts.length > 0 ? visibleProducts.map((product) => <ProductCard key={product.id} product={product} onAdded={showToast} />) : <div className="empty-results"><h2>Không tìm thấy sản phẩm</h2><p>Hãy thử thay đổi bộ lọc hoặc khoảng giá.</p><button className="button button-dark" type="button" onClick={resetFilters}>Xóa bộ lọc <span>→</span></button></div>}</section></div>
+      <div className="catalog-toolbar catalog-toolbar-premium"><p><strong>{visibleProducts.length}</strong> sản phẩm {searchKeyword && <button className="catalog-clear-search" type="button" onClick={clearSearch}>Xóa tìm kiếm</button>}</p><button className="catalog-filter-toggle" type="button" onClick={() => setFiltersOpen(!filtersOpen)}>Bộ lọc <span>{filtersOpen ? "−" : "+"}</span></button><label>Sắp xếp <select value={sort} onChange={(event) => setSort(event.target.value as SortOption)}><option value="featured">Nổi bật nhất</option><option value="price-asc">Giá thấp đến cao</option><option value="price-desc">Giá cao đến thấp</option><option value="rating">Đánh giá cao nhất</option></select></label></div>
+      <div className={`catalog-layout catalog-layout-premium ${filtersOpen ? "filters-visible" : ""}`}><Filters category={category} setCategory={handleCategoryChange} priceRange={priceRange} setPriceRange={setPriceRange} availability={availability} setAvailability={setAvailability} resetFilters={resetFilters} setFiltersOpen={setFiltersOpen} /><section className="catalog-results catalog-results-premium" aria-live="polite">{visibleProducts.length > 0 ? visibleProducts.map((product) => <ProductCard key={product.id} product={product} onAdded={showToast} />) : <div className="empty-results"><h2>Không tìm thấy sản phẩm</h2><p>{searchKeyword ? "Hãy thử từ khóa khác hoặc xem toàn bộ sản phẩm." : "Hãy thử thay đổi bộ lọc hoặc khoảng giá."}</p><button className="button button-dark" type="button" onClick={searchKeyword ? clearSearch : resetFilters}>{searchKeyword ? "Xóa tìm kiếm" : "Xóa bộ lọc"} <span>→</span></button>{searchKeyword && <Link className="text-link" href="/products">Xem tất cả sản phẩm</Link>}</div>}</section></div>
     </main>
     {toast && <div className="cart-toast" role="status">Đã thêm sản phẩm vào giỏ hàng</div>}
   </div>;

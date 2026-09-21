@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useCart } from "@/components/cart-provider";
+import { ProductSearch } from "@/components/product-search";
 
 function Icon({ name }: { name: "search" | "bag" | "menu" | "close" | "chevron" }) {
   const paths = {
@@ -42,6 +43,6 @@ export function SiteHeader() {
       <Link className={isActive("/about") ? "active" : ""} href="/about" onClick={closeMenus}>Về chúng tôi</Link>
       <Link className={isActive("/contact") ? "active" : ""} href="/contact" onClick={closeMenus}>Liên hệ</Link>
     </nav>
-    <div className="header-actions"><button type="button" aria-label="Tìm kiếm"><Icon name="search" /></button><Link className="cart" href="/cart" aria-label="Giỏ hàng"><Icon name="bag" />{itemCount > 0 && <span key={itemCount}>{itemCount}</span>}</Link><button className="mobile-menu" type="button" aria-label={menuOpen ? "Đóng menu" : "Mở menu"} onClick={() => setMenuOpen(!menuOpen)}><Icon name={menuOpen ? "close" : "menu"} /></button></div>
+    <div className="header-actions"><Suspense fallback={<span className="product-search-placeholder" aria-hidden="true" />}><ProductSearch inputId="global-product-search-input" /></Suspense><Link className="cart" href="/cart" aria-label="Giỏ hàng"><Icon name="bag" />{itemCount > 0 && <span key={itemCount}>{itemCount}</span>}</Link><button className="mobile-menu" type="button" aria-label={menuOpen ? "Đóng menu" : "Mở menu"} onClick={() => setMenuOpen(!menuOpen)}><Icon name={menuOpen ? "close" : "menu"} /></button></div>
   </header>;
 }
