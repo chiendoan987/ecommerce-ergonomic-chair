@@ -51,8 +51,21 @@ function Rating({ rating, reviewCount }: Pick<Product, "rating" | "reviewCount">
 }
 
 function ProductCard({ product, onAdded }: { product: Product; onAdded: (name: string) => void }) {
+  const router = useRouter();
   const { addItem } = useCart();
   const salePercent = Math.round((1 - product.price / product.oldPrice) * 100);
+  const handleAddToCart = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    addItem(product);
+    onAdded(product.name);
+  };
+  const handleBuyNow = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    addItem(product);
+    router.push("/cart");
+  };
   return <article className="catalog-card catalog-card-premium">
     <div className="catalog-image-wrapper">
       <Link className="catalog-image catalog-image-premium" href={`/products/${product.id}`}>
@@ -79,15 +92,14 @@ function ProductCard({ product, onAdded }: { product: Product; onAdded: (name: s
           <del>{formatPrice(product.oldPrice)}</del>
         </div>
       </div>
-      <button 
-        className="catalog-add-button" 
-        type="button" 
-        disabled={!product.inStock} 
-        onClick={() => { addItem(product); onAdded(product.name); }} 
-        aria-label={`Thêm ${product.name} vào giỏ hàng`}
-      >
-        {product.inStock ? "Thêm vào giỏ hàng" : "Hết hàng"}
-      </button>
+      <div className="catalog-cta">
+        <button className="catalog-add-button" type="button" disabled={!product.inStock} onClick={handleAddToCart} aria-label={`Thêm ${product.name} vào giỏ hàng`}>
+          {product.inStock ? "Thêm vào giỏ" : "Hết hàng"}
+        </button>
+        <button className="catalog-buy-button" type="button" disabled={!product.inStock} onClick={handleBuyNow} aria-label={`Mua ngay ${product.name}`}>
+          {product.inStock ? "Mua ngay" : "Hết hàng"}
+        </button>
+      </div>
     </div>
   </article>;
 }

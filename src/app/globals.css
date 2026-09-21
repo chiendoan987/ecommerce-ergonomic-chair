@@ -183,9 +183,9 @@ blockquote footer small { color: var(--muted); display: block; font-size: 9px; f
 .detail-breadcrumb a { color: var(--olive); }
 .detail-breadcrumb strong { color: var(--ink); font-weight: 500; }
 .detail-intro { display: grid; gap: 80px; grid-template-columns: 1fr 1fr; margin: 0 auto; max-width: 1170px; padding: 25px 30px 110px; }
-.detail-main-image { background-color: var(--cream); background-position: center; background-size: cover; height: 540px; padding: 18px; position: relative; }
+.detail-main-image { background-color: var(--cream); background-position: center; background-repeat: no-repeat; background-size: contain; height: 540px; padding: 18px; position: relative; }
 .detail-thumbnails { display: flex; gap: 10px; margin-top: 12px; }
-.detail-thumbnails button { background-position: center; background-size: cover; border: 1px solid transparent; height: 73px; opacity: .65; padding: 0; width: 73px; }
+.detail-thumbnails button { background-color: var(--cream); background-position: center; background-repeat: no-repeat; background-size: contain; border: 1px solid transparent; height: 73px; opacity: .65; padding: 0; width: 73px; }
 .detail-thumbnails button.selected, .detail-thumbnails button:hover { border-color: var(--olive); opacity: 1; }
 .detail-copy { align-self: center; padding: 25px 0; }
 .detail-copy h1 { font-size: clamp(43px, 5vw, 68px); margin-bottom: 22px; }
@@ -557,10 +557,14 @@ button:active, .button:active, .catalog-shop-link:active { transform: scale(.98)
 .catalog-price { display: flex; gap: 9px; align-items: baseline; }
 .catalog-price strong { font-size: 16px; font-weight: 700; color: #171717; }
 .catalog-price del { font-size: 12px; color: #999; text-decoration: line-through; }
-.catalog-add-button { width: 100%; background: #8b7355; color: #fff; border: 0; padding: 12px 0; font-size: 12px; font-weight: 600; margin-top: 14px; cursor: pointer; transition: background .2s ease, opacity .2s ease; letter-spacing: .5px; }
-.catalog-add-button:hover { background: #6f5a43; }
-.catalog-add-button:active { transform: scale(.98); }
-.catalog-add-button:disabled { background: #ddd; color: #999; cursor: not-allowed; opacity: 0.6; }
+.catalog-cta { display: grid; gap: 8px; grid-template-columns: 1fr 1fr; margin-top: 14px; }
+.catalog-cta button { border: 1px solid #8b7355; cursor: pointer; font-size: 12px; font-weight: 600; letter-spacing: .2px; min-width: 0; padding: 12px 8px; transition: background .2s ease, color .2s ease, opacity .2s ease; }
+.catalog-add-button { background: #fff; color: #8b7355; }
+.catalog-add-button:hover { background: #f7f7f5; }
+.catalog-buy-button { background: #8b7355; color: #fff; }
+.catalog-buy-button:hover { background: #6f5a43; }
+.catalog-cta button:active { transform: scale(.98); }
+.catalog-cta button:disabled { background: #ddd; border-color: #ddd; color: #999; cursor: not-allowed; opacity: 0.6; }
 .catalog-card-premium .catalog-actions { display: none; }
 .catalog-page-premium .empty-results { grid-column: 1 / -1; padding: 90px 0; text-align: center; }
 .catalog-page-premium .empty-results h2 { font-size: 28px; font-weight: 600; margin-bottom: 14px; color: #171717; }
@@ -594,7 +598,8 @@ button:active, .button:active, .catalog-shop-link:active { transform: scale(.98)
 	.catalog-price { gap: 6px; font-size: 13px; }
 	.catalog-price strong { font-size: 13px; }
 	.catalog-price del { font-size: 10px; }
-	.catalog-add-button { font-size: 10px; padding: 10px 0; margin-top: 11px; }
+	.catalog-cta { gap: 6px; margin-top: 11px; }
+	.catalog-cta button { font-size: 10px; padding: 10px 4px; }
 	.catalog-discount-badge { font-size: 10px; padding: 5px 8px; top: 10px; left: 10px; }
 	.catalog-wishlist-button { font-size: 20px; width: 28px; height: 28px; top: 10px; right: 10px; }
 	.catalog-toolbar-premium { flex-direction: column; align-items: stretch; }
