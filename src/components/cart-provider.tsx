@@ -12,6 +12,7 @@ type CartContextValue = {
   addItem: (product: Product, quantity?: number) => void;
   updateQuantity: (id: string, quantity: number) => void;
   removeItem: (id: string) => void;
+  clearCart: () => void;
 };
 
 const STORAGE_KEY = "ergochair-cart";
@@ -44,6 +45,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }),
     updateQuantity: (id: string, quantity: number) => setItems((current) => quantity > 0 ? current.map((item) => item.product.id === id ? { ...item, quantity } : item) : current.filter((item) => item.product.id !== id)),
     removeItem: (id: string) => setItems((current) => current.filter((item) => item.product.id !== id)),
+    clearCart: () => setItems([]),
   }), [items]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
