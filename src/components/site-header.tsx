@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useCart } from "@/components/cart-provider";
 import { ProductSearch } from "@/components/product-search";
 
@@ -22,23 +22,58 @@ export function SiteHeader() {
   const { itemCount } = useCart();
   const [menuOpen, setMenuOpen] = useState(false);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { setMenuOpen(false); setCategoriesOpen(false); }, 0);
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
   }, [pathname]);
 
   const isActive = (route: string) => route === "/" ? pathname === "/" : pathname.startsWith(route);
-  const closeMenus = () => { setMenuOpen(false); setCategoriesOpen(false); };
+  const closeMenus = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    setMenuOpen(false);
+    setCategoriesOpen(false);
+  };
+
+  const handleMouseEnter = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    setCategoriesOpen(true);
+  };
+
+  const handleMouseLeave = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => {
+      setCategoriesOpen(false);
+    }, 180);
+  };
 
   return <header className="site-header global-header">
     <Link className="logo" href="/" onClick={closeMenus}><span className="logo-mark">e</span> ErgoChair</Link>
     <nav className={menuOpen ? "open" : ""} aria-label="Điều hướng chính">
       <Link className={isActive("/") ? "active" : ""} href="/" onClick={closeMenus}>Trang chủ</Link>
       <Link className={isActive("/products") ? "active" : ""} href="/products" onClick={closeMenus}>Sản phẩm</Link>
-      <div className={`nav-dropdown ${categoriesOpen ? "open" : ""}`} onMouseEnter={() => setCategoriesOpen(true)} onMouseLeave={() => setCategoriesOpen(false)}>
-        <button type="button" aria-expanded={categoriesOpen} onClick={() => setCategoriesOpen(!categoriesOpen)}>Danh mục <Icon name="chevron" /></button>
-        <div className="nav-dropdown-menu"><Link href="/products?category=Ghế+công+thái+học" onClick={closeMenus}>Ghế công thái học</Link><Link href="/products?category=Ghế+văn+phòng" onClick={closeMenus}>Ghế văn phòng</Link><Link href="/products?category=Ghế+gaming" onClick={closeMenus}>Ghế gaming</Link><Link href="/products?category=Ghế+lãnh+đạo" onClick={closeMenus}>Ghế lãnh đạo</Link></div>
+      <div
+        className={`nav-dropdown ${categoriesOpen ? "open" : ""}`}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
+        <button
+          type="button"
+          aria-expanded={categoriesOpen}
+          onClick={() => setCategoriesOpen(!categoriesOpen)}
+        >
+          Danh mục <Icon name="chevron" />
+        </button>
+        <div className="nav-dropdown-menu">
+          <Link href="/products?category=Ghế+công+thái+học" onClick={closeMenus}>Ghế công thái học</Link>
+          <Link href="/products?category=Ghế+văn+phòng" onClick={closeMenus}>Ghế văn phòng</Link>
+          <Link href="/products?category=Ghế+gaming" onClick={closeMenus}>Ghế gaming</Link>
+          <Link href="/products?category=Ghế+lãnh+đạo" onClick={closeMenus}>Ghế lãnh đạo</Link>
+        </div>
       </div>
       <Link className={isActive("/about") ? "active" : ""} href="/about" onClick={closeMenus}>Về chúng tôi</Link>
       <Link className={isActive("/contact") ? "active" : ""} href="/contact" onClick={closeMenus}>Liên hệ</Link>
