@@ -72,13 +72,13 @@ export default function CheckoutPage() {
   };
 
   if (items.length === 0) {
-    return <main className="checkout-page"><section className="checkout-empty"><p className="eyebrow">ERGOCHAIR</p><h1>Giỏ hàng của bạn<br /><em>đang trống.</em></h1><p>Thêm một sản phẩm trước khi tiến hành đặt hàng.</p><Link className="button button-dark" href="/products">Tiếp tục mua sắm <span>→</span></Link><Link className="text-link checkout-back-link" href="/cart">Quay lại giỏ hàng</Link></section></main>;
+    return <main className="checkout-page"><section className="checkout-empty" data-reveal="scale"><p className="eyebrow">ERGOCHAIR</p><h1>Giỏ hàng của bạn<br /><em>đang trống.</em></h1><p>Thêm một sản phẩm trước khi tiến hành đặt hàng.</p><Link className="button button-dark" href="/products">Tiếp tục mua sắm <span>→</span></Link><Link className="text-link checkout-back-link" href="/cart">Quay lại giỏ hàng</Link></section></main>;
   }
 
   return <main className="checkout-page">
-    <header className="checkout-hero"><div><p className="eyebrow">ERGOCHAIR / ĐẶT HÀNG</p><h1>Hoàn tất<br /><em>đơn hàng.</em></h1><p>Chỉ còn vài thông tin để chiếc ghế phù hợp đến với bạn.</p></div></header>
+    <header className="checkout-hero" data-reveal="up"><div><p className="eyebrow">ERGOCHAIR / ĐẶT HÀNG</p><h1>Hoàn tất<br /><em>đơn hàng.</em></h1><p>Chỉ còn vài thông tin để chiếc ghế phù hợp đến với bạn.</p></div></header>
     <div className="checkout-layout">
-      <form className="checkout-form" onSubmit={handleSubmit} noValidate>
+      <form className="checkout-form" onSubmit={handleSubmit} noValidate data-reveal="up" data-reveal-delay="80">
         <div className="checkout-section-heading"><p className="eyebrow">THÔNG TIN GIAO HÀNG</p><h2>Nhận hàng ở đâu?</h2></div>
         <div className="checkout-fields">
           <label>Họ và tên<input type="text" value={form.fullName} onChange={(event) => updateField("fullName", event.target.value)} aria-invalid={Boolean(errors.fullName)} required />{errors.fullName && <small>{errors.fullName}</small>}</label>
@@ -92,7 +92,7 @@ export default function CheckoutPage() {
         <div className="checkout-payment"><p className="eyebrow">PHƯƠNG THỨC THANH TOÁN</p><div><span className="payment-radio" aria-hidden="true" /> <strong>Thanh toán khi nhận hàng (COD)</strong></div><p>Thanh toán khi nhận ghế. Đây là lựa chọn mô phỏng cho đơn hàng demo.</p></div>
         <button className="button button-dark checkout-submit" type="submit" disabled={submitting}>{submitting ? "Đang đặt hàng..." : "Đặt hàng"}<span>→</span></button>
       </form>
-      <aside className="checkout-summary"><p className="eyebrow">TÓM TẮT ĐƠN HÀNG</p><div className="checkout-items">{items.map(({ product, quantity }) => <div className="checkout-item" key={product.id}><div className="checkout-item-image" style={{ backgroundImage: `url(${product.image})` }} /><div><strong>{product.name}</strong><span>{quantity} × {formatPrice(product.price)}</span></div><b>{formatPrice(product.price * quantity)}</b></div>)}</div><div className="checkout-totals"><div><span>Tạm tính</span><strong>{formatPrice(subtotal)}</strong></div><div><span>Phí vận chuyển</span><strong>{formatPrice(shippingFee)}</strong></div><div className="checkout-total"><span>Tổng cộng</span><strong>{formatPrice(total)}</strong></div></div></aside>
+      <aside className="checkout-summary" data-reveal="scale" data-reveal-delay="120"><p className="eyebrow">TÓM TẮT ĐƠN HÀNG</p><div className="checkout-items">{items.map(({ product, quantity }) => <div className="checkout-item" key={product.id}><div className="checkout-item-image" style={{ backgroundImage: `url(${product.image})` }} /><div><strong>{product.name}</strong><span>{quantity} × {formatPrice(product.price)}</span></div><b>{formatPrice(product.price * quantity)}</b></div>)}</div><div className="checkout-totals"><div><span>Tạm tính</span><strong>{formatPrice(subtotal)}</strong></div><div><span>Phí vận chuyển</span><strong>{formatPrice(shippingFee)}</strong></div><div className="checkout-total"><span>Tổng cộng</span><strong>{formatPrice(total)}</strong></div></div></aside>
     </div>
   </main>;
 }

@@ -22,7 +22,24 @@ export function SiteHeader() {
   const { itemCount } = useCart();
   const [menuOpen, setMenuOpen] = useState(false);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    let ticking = false;
+    const onScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          setIsScrolled(window.scrollY > 20);
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { setMenuOpen(false); setCategoriesOpen(false); }, 0);
@@ -51,7 +68,7 @@ export function SiteHeader() {
     }, 180);
   };
 
-  return <header className="site-header global-header">
+  return <header className={`site-header global-header ${isScrolled ? "is-scrolled" : ""}`}>
     <Link className="logo" href="/" onClick={closeMenus}><span className="logo-mark">e</span> ErgoChair</Link>
     <nav className={menuOpen ? "open" : ""} aria-label="Điều hướng chính">
       <Link className={isActive("/") ? "active" : ""} href="/" onClick={closeMenus}>Trang chủ</Link>
