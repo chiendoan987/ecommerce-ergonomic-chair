@@ -1,27 +1,36 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 
 type ProductSearchProps = {
   className?: string;
   inputId?: string;
+  onSearch?: (keyword: string) => void;
 };
 
-export function ProductSearch({ className = "", inputId = "product-search-input" }: ProductSearchProps) {
+export function ProductSearch({ className = "", inputId = "product-search-input", onSearch }: ProductSearchProps) {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [value, setValue] = useState(searchParams.get("search") ?? "");
 
+  useEffect(() => {
+    setValue(searchParams.get("search") ?? "");
+  }, [searchParams]);
+
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const params = new URLSearchParams(pathname === "/products" ? searchParams.toString() : "");
     const keyword = value.trim();
+    if (onSearch) {
+      onSearch(keyword);
+      return;
+    }
+    const params = new URLSearchParams(pathname === "/products" ? searchParams.toString() : "");
     if (keyword) params.set("search", keyword);
     else params.delete("search");
     const query = params.toString();
-    router.push(`/products${query ? `?${query}` : ""}`);
+    router.push(`/products${query ? `?${query}` : ""}`, { scroll: false });
   };
 
   return <form className={`product-search ${className}`.trim()} onSubmit={handleSubmit} role="search">

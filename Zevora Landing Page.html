@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Zevora — Everyday Essentials, Elevated</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream:#ffffff;
+    --bg-page:#fffefd;
+    --ink:#1c1a17;
+    --ink-soft:#3a3733;
+    --gray-text:#6b665f;
+    --tan:#c9a67c;
+    --tan-soft:#e7dcc9;
+    --line:#ece7df;
+    --icon-bg:#f3ede2;
+    --icon-line:#8a7f6b;
+    --hero-bg-1:#e4d9c8;
+    --hero-bg-2:#cdbfa9;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html{scroll-padding-top:env(safe-area-inset-top,0px);}
+  body{
+    font-family:'Poppins',sans-serif;
+    background:var(--bg-page);
+    color:var(--ink);
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  .serif{font-family:'Playfair Display',serif;}
+  a{text-decoration:none;color:inherit;}
+
+  /* NAV */
+  header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:22px 60px;
+    border-bottom:1px solid var(--line);
+    flex-wrap:wrap;
+    gap:16px;
+  }
+  .logo{display:flex;align-items:center;gap:10px;font-size:1.55rem;font-weight:600;letter-spacing:.3px;}
+  .logo svg{width:26px;height:26px;stroke:var(--ink);}
+  nav.main-nav{display:flex;gap:34px;font-size:.95rem;font-weight:400;color:var(--ink-soft);}
+  nav.main-nav a{position:relative;padding-bottom:6px;}
+  nav.main-nav a.active{color:var(--ink);font-weight:500;}
+  nav.main-nav a.active::after{
+    content:'';position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--ink);
+  }
+  .header-icons{display:flex;align-items:center;gap:26px;}
+  .header-icons svg{width:20px;height:20px;stroke:var(--ink);cursor:pointer;}
+  .cart-wrap{position:relative;}
+  .cart-badge{
+    position:absolute;top:-9px;right:-10px;background:var(--tan);color:#fff;
+    font-size:.65rem;width:17px;height:17px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;font-weight:600;
+  }
+
+  /* HERO */
+  .hero{
+    display:grid;grid-template-columns:1fr 1fr;gap:40px;
+    padding:70px 60px 50px;
+    align-items:center;
+  }
+  .hero-text .eyebrow{
+    color:var(--tan);font-size:.8rem;letter-spacing:2.5px;font-weight:600;margin-bottom:18px;
+  }
+  .hero-text h1{
+    font-size:3.4rem;line-height:1.15;font-weight:600;color:var(--ink);margin-bottom:22px;
+  }
+  .hero-text p{
+    font-size:1.05rem;color:var(--gray-text);line-height:1.6;max-width:420px;margin-bottom:34px;
+  }
+  .btn-primary{
+    display:inline-flex;align-items:center;gap:12px;
+    background:var(--ink);color:#fff;padding:16px 30px;
+    border-radius:6px;font-size:.98rem;font-weight:500;
+    transition:transform .15s ease;
+  }
+  .btn-primary:hover{transform:translateY(-2px);}
+  .btn-primary svg{width:16px;height:16px;stroke:#fff;}
+  .dots{display:flex;gap:8px;margin-top:44px;}
+  .dots span{width:8px;height:8px;border-radius:50%;background:var(--tan-soft);}
+  .dots span.active{background:var(--ink);}
+
+  /* HERO IMAGE (illustrated, self-contained) */
+  .hero-image{
+    position:relative;
+    border-radius:28px;
+    overflow:hidden;
+    aspect-ratio:16/11.3;
+    background:
+      radial-gradient(circle at 75% 15%, #f2e9db 0%, transparent 45%),
+      linear-gradient(160deg, var(--hero-bg-1) 0%, var(--hero-bg-2) 100%);
+    box-shadow:0 30px 60px -20px rgba(60,45,20,.25);
+  }
+  .scene{position:absolute;inset:0;}
+  .badge{
+    position:absolute;top:26px;right:26px;
+    width:118px;height:118px;border-radius:50%;
+    background:#fdfcfa;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;box-shadow:0 10px 25px rgba(0,0,0,.12);
+  }
+  .badge .new{font-size:.6rem;letter-spacing:1.5px;color:var(--tan);font-weight:600;}
+  .badge .coll{font-family:'Playfair Display',serif;font-size:.85rem;font-weight:600;color:var(--ink);line-height:1.3;}
+  .badge .sub{font-size:.55rem;letter-spacing:1px;color:var(--gray-text);}
+
+  .plant{position:absolute;left:9%;bottom:26%;width:26%;height:55%;}
+  .plant svg{width:100%;height:100%;}
+  .vase{position:absolute;left:12%;bottom:8%;width:22%;height:38%;}
+  .vase svg{width:100%;height:100%;}
+  .bowl{position:absolute;left:0%;bottom:2%;width:22%;}
+  .bowl svg{width:100%;height:100%;}
+  .bag{position:absolute;right:6%;bottom:4%;width:46%;}
+  .bag svg{width:100%;height:100%;}
+  .floor-shadow{
+    position:absolute;left:0;right:0;bottom:0;height:22%;
+    background:linear-gradient(to top, rgba(0,0,0,.08), transparent);
+  }
+
+  /* FEATURES STRIP */
+  .features{
+    margin:0 60px 60px;
+    background:#faf7f2;
+    border-radius:16px;
+    display:grid;grid-template-columns:repeat(4,1fr);
+    padding:34px 20px;
+  }
+  .feature{
+    display:flex;align-items:center;gap:16px;
+    padding:0 20px;
+    border-right:1px solid var(--line);
+  }
+  .feature:last-child{border-right:none;}
+  .feature .icon{
+    width:52px;height:52px;border-radius:50%;
+    background:var(--icon-bg);
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  }
+  .feature .icon svg{width:24px;height:24px;stroke:var(--icon-line);}
+  .feature h4{font-size:.98rem;font-weight:600;margin-bottom:3px;color:var(--ink);}
+  .feature p{font-size:.85rem;color:var(--gray-text);}
+
+  /* RESPONSIVE */
+  @media (max-width:1000px){
+    header{padding:18px 24px;}
+    nav.main-nav{order:3;width:100%;justify-content:center;gap:20px;font-size:.85rem;flex-wrap:wrap;}
+    .hero{grid-template-columns:1fr;padding:40px 24px;}
+    .hero-text h1{font-size:2.4rem;}
+    .features{grid-template-columns:1fr 1fr;margin:0 24px 40px;gap:24px;}
+    .feature{border-right:none;padding:0;}
+  }
+  @media (max-width:560px){
+    .features{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8h12l1 13H5L6 8z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>
+    <span class="serif">Zevora</span>
+  </div>
+  <nav class="main-nav">
+    <a href="#" class="active">Home</a>
+    <a href="#">Shop</a>
+    <a href="#">Categories</a>
+    <a href="#">New Arrivals</a>
+    <a href="#">About Us</a>
+    <a href="#">Contact</a>
+  </nav>
+  <div class="header-icons">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4.5 5-6 8-6s6.5 1.5 8 6"/></svg>
+    <div class="cart-wrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h2l2.4 12.4a2 2 0 0 0 2 1.6h8.2a2 2 0 0 0 2-1.6L21 8H6"/><circle cx="10" cy="21" r="1"/><circle cx="17" cy="21" r="1"/></svg>
+      <span class="cart-badge">2</span>
+    </div>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="hero-text">
+    <div class="eyebrow">QUALITY YOU CAN FEEL</div>
+    <h1 class="serif">Everyday Essentials,<br>Elevated.</h1>
+    <p>Thoughtfully designed products for a simpler, better everyday.</p>
+    <a href="#" class="btn-primary">
+      Shop Now
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </a>
+    <div class="dots">
+      <span class="active"></span><span></span><span></span>
+    </div>
+  </div>
+
+  <div class="hero-image">
+    <div class="scene">
+      <div class="badge">
+        <div class="new">NEW</div>
+        <div class="coll">SUMMER<br>COLLECTION</div>
+      </div>
+
+      <div class="plant">
+        <svg viewBox="0 0 100 220" fill="none">
+          <path d="M50 220 C48 150 45 120 40 90" stroke="#6b7a52" stroke-width="3" stroke-linecap="round"/>
+          <path d="M50 220 C52 160 55 130 60 100" stroke="#6b7a52" stroke-width="3" stroke-linecap="round"/>
+          <ellipse cx="40" cy="88" rx="14" ry="6" fill="#7c8c5c" transform="rotate(-30 40 88)"/>
+          <ellipse cx="30" cy="105" rx="13" ry="5.5" fill="#7c8c5c" transform="rotate(-40 30 105)"/>
+          <ellipse cx="48" cy="70" rx="13" ry="5.5" fill="#8a9a68" transform="rotate(-20 48 70)"/>
+          <ellipse cx="60" cy="98" rx="14" ry="6" fill="#7c8c5c" transform="rotate(25 60 98)"/>
+          <ellipse cx="68" cy="118" rx="13" ry="5.5" fill="#8a9a68" transform="rotate(35 68 118)"/>
+          <ellipse cx="55" cy="55" rx="12" ry="5" fill="#93a271" transform="rotate(-10 55 55)"/>
+          <ellipse cx="35" cy="130" rx="12" ry="5" fill="#7c8c5c" transform="rotate(-45 35 130)"/>
+        </svg>
+      </div>
+
+      <div class="vase">
+        <svg viewBox="0 0 100 160" fill="none">
+          <path d="M32 20 Q50 5 68 20 L64 40 L36 40 Z" fill="#f1ece2"/>
+          <path d="M36 40 L30 150 Q50 160 70 150 L64 40 Z" fill="#eee7d9"/>
+          <path d="M40 42 L35 150" stroke="#ddd3bf" stroke-width="1.5"/>
+          <path d="M48 42 L45 152" stroke="#ddd3bf" stroke-width="1.5"/>
+          <path d="M56 42 L55 152" stroke="#ddd3bf" stroke-width="1.5"/>
+          <path d="M64 42 L65 150" stroke="#ddd3bf" stroke-width="1.5"/>
+        </svg>
+      </div>
+
+      <div class="bowl">
+        <svg viewBox="0 0 140 80" fill="none">
+          <path d="M10 30 Q70 10 130 30 L120 55 Q70 75 20 55 Z" fill="#8a5a34"/>
+          <path d="M10 30 Q70 48 130 30" stroke="#734a29" stroke-width="2" fill="none"/>
+          <ellipse cx="70" cy="30" rx="60" ry="12" fill="#9c6b41"/>
+        </svg>
+      </div>
+
+      <div class="bag">
+        <svg viewBox="0 0 260 220" fill="none">
+          <path d="M60 90 Q60 30 90 30 Q120 30 120 90" stroke="#e9e0d0" stroke-width="9" fill="none" stroke-linecap="round"/>
+          <path d="M140 90 Q140 30 170 30 Q200 30 200 90" stroke="#e9e0d0" stroke-width="9" fill="none" stroke-linecap="round"/>
+          <path d="M30 90 L230 90 L215 210 Q130 225 45 210 Z" fill="#efe7d7"/>
+          <path d="M30 90 L230 90 L226 105 L34 105 Z" fill="#e3d8c3"/>
+          <circle cx="70" cy="100" r="5" fill="#c9a67c"/>
+          <circle cx="190" cy="100" r="5" fill="#c9a67c"/>
+        </svg>
+      </div>
+
+      <div class="floor-shadow"></div>
+    </div>
+  </div>
+</section>
+
+<div class="features">
+  <div class="feature">
+    <div class="icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="6" width="14" height="11" rx="1"/><path d="M15 10h4l3 3v4h-7z"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="19" r="2"/></svg>
+    </div>
+    <div>
+      <h4>Free Shipping</h4>
+      <p>On all orders over $50</p>
+    </div>
+  </div>
+  <div class="feature">
+    <div class="icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/><path d="M9 12l2 2 4-4"/></svg>
+    </div>
+    <div>
+      <h4>Secure Payment</h4>
+      <p>100% secure checkout</p>
+    </div>
+  </div>
+  <div class="feature">
+    <div class="icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg>
+    </div>
+    <div>
+      <h4>Easy Returns</h4>
+      <p>30-day return policy</p>
+    </div>
+  </div>
+  <div class="feature">
+    <div class="icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 15v-3a9 9 0 0 1 18 0v3"/><path d="M21 15a3 3 0 0 1-3 3h-1v-6h1a3 3 0 0 1 3 3z"/><path d="M3 15a3 3 0 0 0 3 3h1v-6H6a3 3 0 0 0-3 3z"/></svg>
+    </div>
+    <div>
+      <h4>24/7 Support</h4>
+      <p>We're here to help</p>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

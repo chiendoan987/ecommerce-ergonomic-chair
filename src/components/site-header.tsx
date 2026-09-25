@@ -86,10 +86,10 @@ export function SiteHeader() {
           Danh mục <Icon name="chevron" />
         </button>
         <div className="nav-dropdown-menu">
-          <Link href="/products?category=Ghế+công+thái+học" onClick={closeMenus}>Ghế công thái học</Link>
-          <Link href="/products?category=Ghế+văn+phòng" onClick={closeMenus}>Ghế văn phòng</Link>
-          <Link href="/products?category=Ghế+gaming" onClick={closeMenus}>Ghế gaming</Link>
-          <Link href="/products?category=Ghế+lãnh+đạo" onClick={closeMenus}>Ghế lãnh đạo</Link>
+          <Link scroll={false} href="/products?category=Ghế+công+thái+học" onClick={closeMenus}>Ghế công thái học</Link>
+          <Link scroll={false} href="/products?category=Ghế+văn+phòng" onClick={closeMenus}>Ghế văn phòng</Link>
+          <Link scroll={false} href="/products?category=Ghế+gaming" onClick={closeMenus}>Ghế gaming</Link>
+          <Link scroll={false} href="/products?category=Ghế+lãnh+đạo" onClick={closeMenus}>Ghế lãnh đạo</Link>
         </div>
       </div>
       <Link className={isActive("/about") ? "active" : ""} href="/about" onClick={closeMenus}>Về chúng tôi</Link>
