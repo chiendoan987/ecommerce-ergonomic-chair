@@ -66,22 +66,48 @@ const reviews = [
               <span>-{salePercent}%</span>
             </div>
             <p className="detail-description">{product.description}</p>
-            <div className="detail-status">
+            <div className={`detail-status ${!product.inStock ? "is-sold-out" : ""}`}>
               <span className={product.inStock ? "status-dot" : "status-dot unavailable"} />
-              {product.inStock ? "Sẵn sàng giao hàng" : "Tạm hết hàng"}
+              <strong>{product.inStock ? "Sẵn sàng giao hàng" : "Tạm hết hàng tại kho"}</strong>
             </div>
-            <div className="purchase-row">
-              <div className="quantity">
-                <button type="button" onClick={() => setQuantity(Math.max(1, quantity - 1))} aria-label="Giảm số lượng">−</button>
-                <span>{quantity}</span>
-                <button type="button" onClick={() => setQuantity(quantity + 1)} aria-label="Tăng số lượng">＋</button>
+            {!product.inStock && (
+              <div className="detail-out-of-stock-alert" data-reveal="fade">
+                <div className="alert-badge">THÔNG BÁO TẠM HẾT HÀNG</div>
+                <p>
+                  Mẫu ghế <strong>{product.name}</strong> hiện đang tạm thời hết hàng tại kho. Các chức năng thêm vào giỏ và đặt mua trực tuyến cho mẫu ghế này hiện đang tạm khóa. Quý khách vui lòng liên hệ để được ưu tiên nhận thông báo khi có đợt hàng mới.
+                </p>
               </div>
-              <button className="purchase-cart" type="button" disabled={!product.inStock} onClick={() => addItem(product, quantity)}>Thêm vào giỏ hàng</button>
-              <button className="purchase-buy" type="button" disabled={!product.inStock} onClick={() => { addItem(product, quantity); router.push("/cart"); }}>Mua ngay <span>→</span></button>
+            )}
+            <div className="purchase-row">
+              <div className={`quantity ${!product.inStock ? "quantity-disabled" : ""}`}>
+                <button type="button" disabled={!product.inStock} onClick={() => setQuantity(Math.max(1, quantity - 1))} aria-label="Giảm số lượng">−</button>
+                <span>{product.inStock ? quantity : 0}</span>
+                <button type="button" disabled={!product.inStock} onClick={() => setQuantity(quantity + 1)} aria-label="Tăng số lượng">＋</button>
+              </div>
+              {product.inStock ? (
+                <>
+                  <button className="purchase-cart" type="button" onClick={() => addItem(product, quantity)}>Thêm vào giỏ hàng</button>
+                  <button className="purchase-buy" type="button" onClick={() => { addItem(product, quantity); router.push("/cart"); }}>Mua ngay <span>→</span></button>
+                </>
+              ) : (
+                <>
+                  <button className="purchase-cart purchase-disabled" type="button" disabled aria-disabled="true">Tạm hết hàng</button>
+                  <Link href="/contact" className="purchase-contact-btn">Liên hệ tư vấn <span>→</span></Link>
+                </>
+              )}
             </div>
             <div className="detail-promises">
-              <span><b>✓</b> Miễn phí lắp đặt</span>
-              <span><b>✓</b> Đổi trả trong 30 ngày</span>
+              {product.inStock ? (
+                <>
+                  <span><b>✓</b> Miễn phí lắp đặt</span>
+                  <span><b>✓</b> Đổi trả trong 30 ngày</span>
+                </>
+              ) : (
+                <>
+                  <span><b>ℹ</b> Nhận thông báo khi có hàng mới</span>
+                  <span><b>✓</b> Hỗ trợ tư vấn kỹ thuật 24/7</span>
+                </>
+              )}
             </div>
           </div>
         </section>

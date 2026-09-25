@@ -68,10 +68,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     items,
     itemCount: items.reduce((total, item) => total + item.quantity, 0),
     subtotal: items.reduce((total, item) => total + item.product.price * item.quantity, 0),
-    addItem: (product: Product, quantity = 1) => setItems((current) => {
-      const existing = current.find((item) => item.product.id === product.id);
-      return existing ? current.map((item) => item.product.id === product.id ? { ...item, quantity: item.quantity + quantity } : item) : [...current, { product, quantity }];
-    }),
+    addItem: (product: Product, quantity = 1) => {
+      if (!product.inStock) return;
+      setItems((current) => {
+        const existing = current.find((item) => item.product.id === product.id);
+        return existing ? current.map((item) => item.product.id === product.id ? { ...item, quantity: item.quantity + quantity } : item) : [...current, { product, quantity }];
+      });
+    },
     updateQuantity: (id: string, quantity: number) => setItems((current) => quantity > 0 ? current.map((item) => item.product.id === id ? { ...item, quantity } : item) : current.filter((item) => item.product.id !== id)),
     removeItem: (id: string) => setItems((current) => current.filter((item) => item.product.id !== id)),
     clearCart: () => setItems([]),

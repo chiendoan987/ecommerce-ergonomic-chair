@@ -37,7 +37,15 @@ function ProductCard({ product, index, onAdded }: { product: Product; index: num
       <p>{product.category}</p>
       <Link href={`/products/${product.id}`}><h3>{product.name}</h3></Link>
       <div className="home-rating"><span>★★★★★</span> {product.rating} <small>({product.reviewCount})</small></div>
-      <div className="home-price"><strong>{formatPrice(product.price)}</strong><del>{formatPrice(product.oldPrice)}</del><button type="button" disabled={!product.inStock} onClick={() => { addItem(product); onAdded(product.name); }} aria-label={`Thêm ${product.name} vào giỏ hàng`}><Icon name="bag" /></button></div>
+      <div className="home-price">
+        <strong>{formatPrice(product.price)}</strong>
+        <del>{formatPrice(product.oldPrice)}</del>
+        {product.inStock ? (
+          <button type="button" onClick={() => { addItem(product); onAdded(product.name); }} aria-label={`Thêm ${product.name} vào giỏ hàng`}><Icon name="bag" /></button>
+        ) : (
+          <Link href={`/products/${product.id}`} className="home-sold-out-link" title="Xem chi tiết sản phẩm" aria-label={`Xem chi tiết ${product.name}`}><Icon name="arrow" /></Link>
+        )}
+      </div>
     </div>
   </article>;
 }

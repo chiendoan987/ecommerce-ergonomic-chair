@@ -68,6 +68,13 @@ export function SiteHeader() {
     }, 180);
   };
 
+  const handleCategoryClick = () => {
+    closeMenus();
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("scroll-to-products", { detail: { delay: 300 } }));
+    }
+  };
+
   return <header className={`site-header global-header ${isScrolled ? "is-scrolled" : ""}`}>
     <Link className="logo" href="/" onClick={closeMenus}><span className="logo-mark">e</span> ErgoChair</Link>
     <nav className={menuOpen ? "open" : ""} aria-label="Điều hướng chính">
@@ -86,10 +93,10 @@ export function SiteHeader() {
           Danh mục <Icon name="chevron" />
         </button>
         <div className="nav-dropdown-menu">
-          <Link scroll={false} href="/products?category=Ghế+công+thái+học" onClick={closeMenus}>Ghế công thái học</Link>
-          <Link scroll={false} href="/products?category=Ghế+văn+phòng" onClick={closeMenus}>Ghế văn phòng</Link>
-          <Link scroll={false} href="/products?category=Ghế+gaming" onClick={closeMenus}>Ghế gaming</Link>
-          <Link scroll={false} href="/products?category=Ghế+lãnh+đạo" onClick={closeMenus}>Ghế lãnh đạo</Link>
+          <Link scroll={false} href="/products?category=Ghế+công+thái+học" onClick={handleCategoryClick}>Ghế công thái học</Link>
+          <Link scroll={false} href="/products?category=Ghế+văn+phòng" onClick={handleCategoryClick}>Ghế văn phòng</Link>
+          <Link scroll={false} href="/products?category=Ghế+gaming" onClick={handleCategoryClick}>Ghế gaming</Link>
+          <Link scroll={false} href="/products?category=Ghế+lãnh+đạo" onClick={handleCategoryClick}>Ghế lãnh đạo</Link>
         </div>
       </div>
       <Link className={isActive("/about") ? "active" : ""} href="/about" onClick={closeMenus}>Về chúng tôi</Link>

@@ -72,6 +72,7 @@ function ProductCard({ product, index = 0, onAdded }: { product: Product; index?
     <div className="catalog-image-wrapper">
       <Link className="catalog-image catalog-image-premium" href={`/products/${product.id}`}>
         <img src={product.image} alt={product.name} />
+        {!product.inStock && <span className="catalog-sold-out">Tạm hết hàng</span>}
       </Link>
       {product.inStock && <span className="catalog-discount-badge">{-salePercent}%</span>}
       <button 
@@ -82,7 +83,6 @@ function ProductCard({ product, index = 0, onAdded }: { product: Product; index?
       >
         ♡
       </button>
-      {!product.inStock && <div className="catalog-sold-out">Tạm hết hàng</div>}
     </div>
     <div className="catalog-card-body">
       <p className="catalog-category">{product.category}</p>
@@ -95,12 +95,20 @@ function ProductCard({ product, index = 0, onAdded }: { product: Product; index?
         </div>
       </div>
       <div className="catalog-cta">
-        <button className="catalog-add-button" type="button" disabled={!product.inStock} onClick={handleAddToCart} aria-label={`Thêm ${product.name} vào giỏ hàng`}>
-          {product.inStock ? "Thêm vào giỏ" : "Hết hàng"}
-        </button>
-        <button className="catalog-buy-button" type="button" disabled={!product.inStock} onClick={handleBuyNow} aria-label={`Mua ngay ${product.name}`}>
-          {product.inStock ? "Mua ngay" : "Hết hàng"}
-        </button>
+        {product.inStock ? (
+          <>
+            <button className="catalog-add-button" type="button" onClick={handleAddToCart} aria-label={`Thêm ${product.name} vào giỏ hàng`}>
+              Thêm vào giỏ
+            </button>
+            <button className="catalog-buy-button" type="button" onClick={handleBuyNow} aria-label={`Mua ngay ${product.name}`}>
+              Mua ngay
+            </button>
+          </>
+        ) : (
+          <Link href={`/products/${product.id}`} className="catalog-view-detail-btn" aria-label={`Xem chi tiết ${product.name}`}>
+            Xem chi tiết <span>→</span>
+          </Link>
+        )}
       </div>
     </div>
   </article>;
@@ -241,6 +249,107 @@ function ProductsPageContent() {
   const { itemCount } = useCart();
 
   const normalizedSearch = normalizeSearchText(searchKeyword);
+  const isInitialMount = useRef(true);
+  const prevCategoryRef = useRef(initialCategory);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const scrollAnimRef = useRef<number | null>(null);
+
+  // Silky smooth, gentle slow scrolling with cubic easing
+  const slowSmoothScrollTo = (targetY: number, duration = 900) => {
+    if (typeof window === "undefined") return;
+    if (scrollAnimRef.current) {
+      cancelAnimationFrame(scrollAnimRef.current);
+      scrollAnimRef.current = null;
+    }
+
+    const startY = window.pageYOffset || document.documentElement.scrollTop;
+    const distance = targetY - startY;
+    if (Math.abs(distance) < 4) return;
+
+    const originalScrollBehavior = document.documentElement.style.scrollBehavior;
+    document.documentElement.style.scrollBehavior = "auto";
+
+    const startTime = performance.now();
+
+    const easeInOutCubic = (t: number) => {
+      return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    };
+
+    const cleanup = () => {
+      document.documentElement.style.scrollBehavior = originalScrollBehavior;
+      window.removeEventListener("wheel", cancelScroll);
+      window.removeEventListener("touchstart", cancelScroll);
+    };
+
+    const cancelScroll = () => {
+      if (scrollAnimRef.current) {
+        cancelAnimationFrame(scrollAnimRef.current);
+        scrollAnimRef.current = null;
+      }
+      cleanup();
+    };
+
+    window.addEventListener("wheel", cancelScroll, { passive: true });
+    window.addEventListener("touchstart", cancelScroll, { passive: true });
+
+    const step = (now: number) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = easeInOutCubic(progress);
+
+      window.scrollTo(0, Math.round(startY + distance * eased));
+
+      if (progress < 1) {
+        scrollAnimRef.current = requestAnimationFrame(step);
+      } else {
+        scrollAnimRef.current = null;
+        cleanup();
+      }
+    };
+
+    scrollAnimRef.current = requestAnimationFrame(step);
+  };
+
+  const scrollToProducts = (delay = 350) => {
+    if (typeof window === "undefined") return;
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+    scrollTimeoutRef.current = setTimeout(() => {
+      const target = document.getElementById("catalog-products") || document.querySelector(".catalog-main");
+      if (target) {
+        const headerOffset = window.innerWidth <= 800 ? 76 : 94;
+        const elementPosition = target.getBoundingClientRect().top;
+        const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+        slowSmoothScrollTo(Math.max(0, offsetPosition), 900);
+      }
+    }, delay);
+  };
+
+  // Auto scroll down to products after short delay if landing with a category selected
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      const initialCat = normalizeCategory(searchParams.get("category"));
+      if (initialCat && initialCat !== categories[0] && categories.includes(initialCat)) {
+        scrollToProducts(450);
+      }
+    }
+  }, [searchParams]);
+
+  // Listen for custom trigger to scroll to products
+  useEffect(() => {
+    const handleScrollEvent = (e: Event) => {
+      const customEvent = e as CustomEvent<{ delay?: number }>;
+      scrollToProducts(customEvent.detail?.delay ?? 200);
+    };
+    window.addEventListener("scroll-to-products", handleScrollEvent);
+    return () => {
+      window.removeEventListener("scroll-to-products", handleScrollEvent);
+      if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+      if (scrollAnimRef.current) cancelAnimationFrame(scrollAnimRef.current);
+    };
+  }, []);
 
   // Sync state when URL searchParams changes externally (e.g. Navigation from Header)
   useEffect(() => {
@@ -250,6 +359,13 @@ function ProductsPageContent() {
     const p = searchParams.get("price") ?? "all";
     const st = searchParams.get("stock") ?? "all";
     const so = (searchParams.get("sort") as SortOption) ?? "featured";
+
+    if (!isInitialMount.current && prevCategoryRef.current !== validCat) {
+      prevCategoryRef.current = validCat;
+      if (validCat !== categories[0]) {
+        scrollToProducts(250);
+      }
+    }
 
     setCategory(validCat);
     setSearchKeyword(s);
@@ -268,6 +384,13 @@ function ProductsPageContent() {
       const p = params.get("price") ?? "all";
       const st = params.get("stock") ?? "all";
       const so = (params.get("sort") as SortOption) ?? "featured";
+
+      if (prevCategoryRef.current !== validCat) {
+        prevCategoryRef.current = validCat;
+        if (validCat !== categories[0]) {
+          scrollToProducts(250);
+        }
+      }
 
       setCategory(validCat);
       setSearchKeyword(s);
@@ -319,8 +442,12 @@ function ProductsPageContent() {
   };
 
   const handleCategoryChange = (newCategory: string) => {
+    prevCategoryRef.current = newCategory;
     setCategory(newCategory);
     updateUrlParams(newCategory, searchKeyword, priceRange, availability, sort);
+    if (newCategory !== categories[0]) {
+      scrollToProducts(200);
+    }
   };
 
   const handlePriceRangeChange = (newPrice: string) => {
@@ -395,7 +522,7 @@ function ProductsPageContent() {
     <header className="catalog-header"><Link className="logo" href="/"><span className="logo-mark">e</span> ErgoChair</Link><nav><Link href="/">Trang chủ</Link><Link scroll={false} className="active" href="/products">Sản phẩm</Link><div ref={categoryDropdownRef} className={`nav-dropdown ${categoryDropdownOpen ? "open" : ""}`} onMouseEnter={() => setCategoryDropdownOpen(true)} onMouseLeave={() => setCategoryDropdownOpen(false)}><button type="button" className="nav-dropdown-toggle" onClick={() => setCategoryDropdownOpen((prev) => !prev)} aria-expanded={categoryDropdownOpen}>Danh mục <span className="dropdown-arrow">▼</span></button><div className="nav-dropdown-menu">{categoryDropdownItems.map((cat) => <button key={cat} type="button" className="nav-dropdown-item" onClick={() => { handleCategoryChange(cat); setCategoryDropdownOpen(false); }}>{cat}</button>)}</div></div><Link href="/#about">Về chúng tôi</Link></nav><div className="catalog-header-actions"><ProductSearch key={searchKeyword} inputId="catalog-product-search-input" onSearch={handleSearchChange} /><Link className="catalog-cart" href="/cart" aria-label="Giỏ hàng"><span aria-hidden="true">⌑</span>{itemCount > 0 && <b key={itemCount}>{itemCount}</b>}</Link><Link className="catalog-shop-link" href="/products">Mua sắm</Link></div></header>
     <div className="catalog-breadcrumb" data-reveal="fade" suppressHydrationWarning><Link href="/">Trang chủ</Link><span>/</span><strong>Sản phẩm</strong></div>
     <header className="catalog-hero catalog-hero-premium" data-reveal="up" suppressHydrationWarning><div><p className="eyebrow">{searchKeyword ? "TÌM KIẾM SẢN PHẨM" : "BỘ SƯU TẬP ERGOCHAIR / 2026"}</p><h1>{searchKeyword ? <>Kết quả tìm kiếm<br /><em>cho “{searchKeyword}”.</em></> : <>{meta.title}<br /><em>{meta.emoji}</em></>}</h1><p>{searchKeyword ? `${visibleProducts.length} sản phẩm phù hợp với từ khóa của bạn.` : meta.description}</p></div><div className="catalog-hero-count" data-reveal="scale" data-reveal-delay="120" suppressHydrationWarning><strong>{visibleProducts.length}</strong><span>sản phẩm<br />được tuyển chọn</span></div></header>
-    <main className="catalog-main catalog-main-premium">
+    <main id="catalog-products" className="catalog-main catalog-main-premium">
       <div className="catalog-toolbar catalog-toolbar-premium" data-reveal="fade" suppressHydrationWarning><p><strong>{visibleProducts.length}</strong> sản phẩm {searchKeyword && <button className="catalog-clear-search" type="button" onClick={clearSearch}>Xóa tìm kiếm</button>}</p><button className="catalog-filter-toggle" type="button" onClick={() => setFiltersOpen(!filtersOpen)}>Bộ lọc <span>{filtersOpen ? "−" : "+"}</span></button><label>Sắp xếp <select value={sort} onChange={(event) => handleSortChange(event.target.value as SortOption)}><option value="featured">Nổi bật nhất</option><option value="price-asc">Giá thấp đến cao</option><option value="price-desc">Giá cao đến thấp</option><option value="rating">Đánh giá cao nhất</option></select></label></div>
       <div className={`catalog-layout catalog-layout-premium ${filtersOpen ? "filters-visible" : ""}`}><Filters category={category} setCategory={handleCategoryChange} priceRange={priceRange} setPriceRange={handlePriceRangeChange} availability={availability} setAvailability={handleAvailabilityChange} resetFilters={resetFilters} setFiltersOpen={setFiltersOpen} /><section className="catalog-results catalog-results-premium" aria-live="polite">{visibleProducts.length > 0 ? visibleProducts.map((product, index) => <ProductCard key={product.id} product={product} index={index} onAdded={showToast} />) : <div className="empty-results" data-reveal="scale" suppressHydrationWarning><h2>Không tìm thấy sản phẩm</h2><p>{searchKeyword ? "Hãy thử từ khóa khác hoặc xem toàn bộ sản phẩm." : "Hãy thử thay đổi bộ lọc hoặc khoảng giá."}</p><button className="button button-dark" type="button" onClick={searchKeyword ? clearSearch : resetFilters}>{searchKeyword ? "Xóa tìm kiếm" : "Xóa bộ lọc"} <span>→</span></button>{searchKeyword && <button type="button" className="text-link" onClick={() => { clearSearch(); resetFilters(); }}>Xem tất cả sản phẩm</button>}</div>}</section></div>
     </main>
