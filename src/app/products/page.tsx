@@ -2,14 +2,15 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCart } from "@/components/cart-provider";
+import { useWishlist } from "@/hooks/use-wishlist";
+import { useToast } from "@/hooks/use-toast";
 import { ProductSearch } from "@/components/product-search";
-import { formatPrice, products, type Product } from "@/lib/products";
+import { getProducts } from "@/lib/services/product.service";
+import { formatPrice } from "@/lib/utils/format";
+import type { Product, SortOption } from "@/lib/types/product";
 import { normalizeSearchText } from "@/lib/search";
-
-type SortOption = "featured" | "price-asc" | "price-desc" | "rating";
 
 const normalizeCategory = (value: string | null | undefined) => {
   const normalizedValue = value ?? "";
@@ -49,25 +50,39 @@ const categoryMeta: Record<string, { title: string; emoji: string; description: 
 };
 
 function Rating({ rating, reviewCount }: Pick<Product, "rating" | "reviewCount">) {
-  return <div className="catalog-rating"><span>★★★★★</span><strong>{rating.toFixed(1)}</strong><small>({reviewCount})</small></div>;
+  const score = typeof rating === "number" ? rating : rating.average;
+  return <div className="catalog-rating"><span>★★★★★</span><strong>{score.toFixed(1)}</strong><small>({reviewCount})</small></div>;
 }
 
-function ProductCard({ product, index = 0, onAdded }: { product: Product; index?: number; onAdded: (name: string) => void }) {
+function ProductCard({ product, index = 0, onAdded }: { product: Product; index?: number; onAdded?: (name: string) => void }) {
   const router = useRouter();
   const { addItem } = useCart();
+  const { isInWishlist, toggleWishlist } = useWishlist();
+  const toast = useToast();
+  const isWishlisted = isInWishlist(product.id);
   const salePercent = Math.round((1 - product.price / product.oldPrice) * 100);
+
   const handleAddToCart = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
     addItem(product);
-    onAdded(product.name);
+    toast.success(`Đã thêm "${product.name}" vào giỏ hàng`);
+    if (onAdded) onAdded(product.name);
   };
+
   const handleBuyNow = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
     addItem(product);
     router.push("/cart");
   };
+
+  const handleToggleWishlist = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    toggleWishlist(product.id);
+  };
+
   return <article className="catalog-card catalog-card-premium" data-reveal="up" data-reveal-delay={String((index % 6) * 70)} suppressHydrationWarning>
     <div className="catalog-image-wrapper">
       <Link className="catalog-image catalog-image-premium" href={`/products/${product.id}`}>
@@ -76,12 +91,13 @@ function ProductCard({ product, index = 0, onAdded }: { product: Product; index?
       </Link>
       {product.inStock && <span className="catalog-discount-badge">{-salePercent}%</span>}
       <button 
-        className="catalog-wishlist-button" 
+        className={`catalog-wishlist-button ${isWishlisted ? "active" : ""}`} 
         type="button" 
-        aria-label="Thêm vào danh sách yêu thích"
-        onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+        aria-label={isWishlisted ? `Bỏ lưu ${product.name}` : `Lưu ${product.name} vào yêu thích`}
+        title={isWishlisted ? "Bỏ lưu yêu thích" : "Lưu vào yêu thích"}
+        onClick={handleToggleWishlist}
       >
-        ♡
+        {isWishlisted ? "♥" : "♡"}
       </button>
     </div>
     <div className="catalog-card-body">
@@ -230,7 +246,6 @@ function Filters({
 }
 
 function ProductsPageContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const requestedCategory = normalizeCategory(searchParams.get("category"));
   const initialCategory = categories.includes(requestedCategory ?? "") ? (requestedCategory ?? categories[0]) : categories[0];
@@ -239,20 +254,32 @@ function ProductsPageContent() {
   const initialStock = searchParams.get("stock") ?? "all";
   const initialSort = (searchParams.get("sort") as SortOption) ?? "featured";
 
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [category, setCategory] = useState(initialCategory);
   const [searchKeyword, setSearchKeyword] = useState(initialSearch);
   const [priceRange, setPriceRange] = useState(initialPrice);
   const [availability, setAvailability] = useState(initialStock);
   const [sort, setSort] = useState<SortOption>(initialSort);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [toast, setToast] = useState("");
   const { itemCount } = useCart();
+  const { wishlistCount } = useWishlist();
 
   const normalizedSearch = normalizeSearchText(searchKeyword);
   const isInitialMount = useRef(true);
   const prevCategoryRef = useRef(initialCategory);
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const scrollAnimRef = useRef<number | null>(null);
+
+  // Load products from Service Layer
+  useEffect(() => {
+    let isMounted = true;
+    getProducts().then((res) => {
+      if (isMounted) setAllProducts(res.items);
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Silky smooth, gentle slow scrolling with cubic easing
   const slowSmoothScrollTo = (targetY: number, duration = 900) => {
@@ -310,7 +337,7 @@ function ProductsPageContent() {
     scrollAnimRef.current = requestAnimationFrame(step);
   };
 
-  const scrollToProducts = (delay = 350) => {
+  const scrollToProducts = useCallback((delay = 350) => {
     if (typeof window === "undefined") return;
     if (scrollTimeoutRef.current) {
       clearTimeout(scrollTimeoutRef.current);
@@ -324,7 +351,7 @@ function ProductsPageContent() {
         slowSmoothScrollTo(Math.max(0, offsetPosition), 900);
       }
     }, delay);
-  };
+  }, []);
 
   // Auto scroll down to products after short delay if landing with a category selected
   useEffect(() => {
@@ -335,7 +362,7 @@ function ProductsPageContent() {
         scrollToProducts(450);
       }
     }
-  }, [searchParams]);
+  }, [searchParams, scrollToProducts]);
 
   // Listen for custom trigger to scroll to products
   useEffect(() => {
@@ -349,7 +376,7 @@ function ProductsPageContent() {
       if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
       if (scrollAnimRef.current) cancelAnimationFrame(scrollAnimRef.current);
     };
-  }, []);
+  }, [scrollToProducts]);
 
   // Sync state when URL searchParams changes externally (e.g. Navigation from Header)
   useEffect(() => {
@@ -367,12 +394,16 @@ function ProductsPageContent() {
       }
     }
 
-    setCategory(validCat);
-    setSearchKeyword(s);
-    setPriceRange(p);
-    setAvailability(st);
-    setSort(so);
-  }, [searchParams]);
+    const timer = setTimeout(() => {
+      setCategory(validCat);
+      setSearchKeyword(s);
+      setPriceRange(p);
+      setAvailability(st);
+      setSort(so);
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }, [searchParams, scrollToProducts]);
 
   // Sync state on browser back/forward buttons
   useEffect(() => {
@@ -401,7 +432,7 @@ function ProductsPageContent() {
 
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, []);
+  }, [scrollToProducts]);
 
   // Update browser URL query params quietly without triggering Next.js page reload or scroll-to-top
   const updateUrlParams = (
@@ -483,17 +514,20 @@ function ProductsPageContent() {
     updateUrlParams(category, "", priceRange, availability, sort);
   };
 
-  const showToast = (name: string) => { setToast(`${name} đã được thêm vào giỏ hàng`); window.setTimeout(() => setToast(""), 2400); };
   const visibleProducts = useMemo(() => {
-    const filtered = products.filter((product) => {
+    const filtered = allProducts.filter((product) => {
       const searchMatches = !normalizedSearch || [product.name, product.category, product.description, product.material, product.color].some((field) => normalizeSearchText(field).includes(normalizedSearch));
       const categoryMatches = category === categories[0] || product.category === category;
       const priceMatches = priceRange === "all" || (priceRange === "under-6" ? product.price < 6000000 : priceRange === "6-to-10" ? product.price >= 6000000 && product.price <= 10000000 : product.price > 10000000);
       const availabilityMatches = availability === "all" || (availability === "in-stock" ? product.inStock : !product.inStock);
       return searchMatches && categoryMatches && priceMatches && availabilityMatches;
     });
-    return [...filtered].sort((first, second) => sort === "price-asc" ? first.price - second.price : sort === "price-desc" ? second.price - first.price : sort === "rating" ? second.rating - first.rating : 0);
-  }, [availability, category, normalizedSearch, priceRange, sort]);
+    return [...filtered].sort((first, second) => {
+      const ratingA = typeof first.rating === "number" ? first.rating : first.rating.average;
+      const ratingB = typeof second.rating === "number" ? second.rating : second.rating.average;
+      return sort === "price-asc" ? first.price - second.price : sort === "price-desc" ? second.price - first.price : sort === "rating" ? ratingB - ratingA : 0;
+    });
+  }, [allProducts, availability, category, normalizedSearch, priceRange, sort]);
 
   const meta = categoryMeta[category] || categoryMeta["Tất cả loại ghế"];
 
@@ -519,14 +553,13 @@ function ProductsPageContent() {
   const categoryDropdownItems = categories.filter(c => c !== categories[0]);
 
   return <div className="catalog-page catalog-page-premium">
-    <header className="catalog-header"><Link className="logo" href="/"><span className="logo-mark">e</span> ErgoChair</Link><nav><Link href="/">Trang chủ</Link><Link scroll={false} className="active" href="/products">Sản phẩm</Link><div ref={categoryDropdownRef} className={`nav-dropdown ${categoryDropdownOpen ? "open" : ""}`} onMouseEnter={() => setCategoryDropdownOpen(true)} onMouseLeave={() => setCategoryDropdownOpen(false)}><button type="button" className="nav-dropdown-toggle" onClick={() => setCategoryDropdownOpen((prev) => !prev)} aria-expanded={categoryDropdownOpen}>Danh mục <span className="dropdown-arrow">▼</span></button><div className="nav-dropdown-menu">{categoryDropdownItems.map((cat) => <button key={cat} type="button" className="nav-dropdown-item" onClick={() => { handleCategoryChange(cat); setCategoryDropdownOpen(false); }}>{cat}</button>)}</div></div><Link href="/#about">Về chúng tôi</Link></nav><div className="catalog-header-actions"><ProductSearch key={searchKeyword} inputId="catalog-product-search-input" onSearch={handleSearchChange} /><Link className="catalog-cart" href="/cart" aria-label="Giỏ hàng"><span aria-hidden="true">⌑</span>{itemCount > 0 && <b key={itemCount}>{itemCount}</b>}</Link><Link className="catalog-shop-link" href="/products">Mua sắm</Link></div></header>
+    <header className="catalog-header"><Link className="logo" href="/"><span className="logo-mark">e</span> ErgoChair</Link><nav><Link href="/">Trang chủ</Link><Link scroll={false} className="active" href="/products">Sản phẩm</Link><div ref={categoryDropdownRef} className={`nav-dropdown ${categoryDropdownOpen ? "open" : ""}`} onMouseEnter={() => setCategoryDropdownOpen(true)} onMouseLeave={() => setCategoryDropdownOpen(false)}><button type="button" className="nav-dropdown-toggle" onClick={() => setCategoryDropdownOpen((prev) => !prev)} aria-expanded={categoryDropdownOpen}>Danh mục <span className="dropdown-arrow">▼</span></button><div className="nav-dropdown-menu">{categoryDropdownItems.map((cat) => <button key={cat} type="button" className="nav-dropdown-item" onClick={() => { handleCategoryChange(cat); setCategoryDropdownOpen(false); }}>{cat}</button>)}</div></div><Link href="/#about">Về chúng tôi</Link></nav><div className="catalog-header-actions"><ProductSearch key={searchKeyword} inputId="catalog-product-search-input" onSearch={handleSearchChange} /><Link className="catalog-cart" href="/wishlist" aria-label="Danh sách yêu thích"><span aria-hidden="true" style={{ fontSize: "18px" }}>♥</span>{wishlistCount > 0 && <b key={wishlistCount}>{wishlistCount}</b>}</Link><Link className="catalog-cart" href="/cart" aria-label="Giỏ hàng"><span aria-hidden="true">⌑</span>{itemCount > 0 && <b key={itemCount}>{itemCount}</b>}</Link><Link className="catalog-shop-link" href="/products">Mua sắm</Link></div></header>
     <div className="catalog-breadcrumb" data-reveal="fade" suppressHydrationWarning><Link href="/">Trang chủ</Link><span>/</span><strong>Sản phẩm</strong></div>
     <header className="catalog-hero catalog-hero-premium" data-reveal="up" suppressHydrationWarning><div><p className="eyebrow">{searchKeyword ? "TÌM KIẾM SẢN PHẨM" : "BỘ SƯU TẬP ERGOCHAIR / 2026"}</p><h1>{searchKeyword ? <>Kết quả tìm kiếm<br /><em>cho “{searchKeyword}”.</em></> : <>{meta.title}<br /><em>{meta.emoji}</em></>}</h1><p>{searchKeyword ? `${visibleProducts.length} sản phẩm phù hợp với từ khóa của bạn.` : meta.description}</p></div><div className="catalog-hero-count" data-reveal="scale" data-reveal-delay="120" suppressHydrationWarning><strong>{visibleProducts.length}</strong><span>sản phẩm<br />được tuyển chọn</span></div></header>
     <main id="catalog-products" className="catalog-main catalog-main-premium">
       <div className="catalog-toolbar catalog-toolbar-premium" data-reveal="fade" suppressHydrationWarning><p><strong>{visibleProducts.length}</strong> sản phẩm {searchKeyword && <button className="catalog-clear-search" type="button" onClick={clearSearch}>Xóa tìm kiếm</button>}</p><button className="catalog-filter-toggle" type="button" onClick={() => setFiltersOpen(!filtersOpen)}>Bộ lọc <span>{filtersOpen ? "−" : "+"}</span></button><label>Sắp xếp <select value={sort} onChange={(event) => handleSortChange(event.target.value as SortOption)}><option value="featured">Nổi bật nhất</option><option value="price-asc">Giá thấp đến cao</option><option value="price-desc">Giá cao đến thấp</option><option value="rating">Đánh giá cao nhất</option></select></label></div>
-      <div className={`catalog-layout catalog-layout-premium ${filtersOpen ? "filters-visible" : ""}`}><Filters category={category} setCategory={handleCategoryChange} priceRange={priceRange} setPriceRange={handlePriceRangeChange} availability={availability} setAvailability={handleAvailabilityChange} resetFilters={resetFilters} setFiltersOpen={setFiltersOpen} /><section className="catalog-results catalog-results-premium" aria-live="polite">{visibleProducts.length > 0 ? visibleProducts.map((product, index) => <ProductCard key={product.id} product={product} index={index} onAdded={showToast} />) : <div className="empty-results" data-reveal="scale" suppressHydrationWarning><h2>Không tìm thấy sản phẩm</h2><p>{searchKeyword ? "Hãy thử từ khóa khác hoặc xem toàn bộ sản phẩm." : "Hãy thử thay đổi bộ lọc hoặc khoảng giá."}</p><button className="button button-dark" type="button" onClick={searchKeyword ? clearSearch : resetFilters}>{searchKeyword ? "Xóa tìm kiếm" : "Xóa bộ lọc"} <span>→</span></button>{searchKeyword && <button type="button" className="text-link" onClick={() => { clearSearch(); resetFilters(); }}>Xem tất cả sản phẩm</button>}</div>}</section></div>
+      <div className={`catalog-layout catalog-layout-premium ${filtersOpen ? "filters-visible" : ""}`}><Filters category={category} setCategory={handleCategoryChange} priceRange={priceRange} setPriceRange={handlePriceRangeChange} availability={availability} setAvailability={handleAvailabilityChange} resetFilters={resetFilters} setFiltersOpen={setFiltersOpen} /><section className="catalog-results catalog-results-premium" aria-live="polite">{visibleProducts.length > 0 ? visibleProducts.map((product, index) => <ProductCard key={product.id} product={product} index={index} />) : <div className="empty-results" data-reveal="scale" suppressHydrationWarning><h2>Không tìm thấy sản phẩm</h2><p>{searchKeyword ? "Hãy thử từ khóa khác hoặc xem toàn bộ sản phẩm." : "Hãy thử thay đổi bộ lọc hoặc khoảng giá."}</p><button className="button button-dark" type="button" onClick={searchKeyword ? clearSearch : resetFilters}>{searchKeyword ? "Xóa tìm kiếm" : "Xóa bộ lọc"} <span>→</span></button>{searchKeyword && <button type="button" className="text-link" onClick={() => { clearSearch(); resetFilters(); }}>Xem tất cả sản phẩm</button>}</div>}</section></div>
     </main>
-    {toast && <div className="cart-toast" role="status">Đã thêm sản phẩm vào giỏ hàng</div>}
   </div>;
 }
 

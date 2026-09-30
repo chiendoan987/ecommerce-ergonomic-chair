@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { Poppins, Playfair_Display } from "next/font/google";
 import "./globals.css";
+import { ToastProvider } from "@/contexts/toast-context";
+import { AuthProvider } from "@/contexts/auth-context";
+import { WishlistProvider } from "@/contexts/wishlist-context";
 import { CartProvider } from "@/components/cart-provider";
 import { SiteHeader } from "@/components/site-header";
 import { ScrollRevealProvider } from "@/components/scroll-reveal-provider";
@@ -37,12 +40,18 @@ export default function RootLayout({
       className={`${poppins.variable} ${playfair.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <CartProvider>
-          <ScrollRevealProvider />
-          <SiteHeader />
-          {children}
-          <ScrollToTop />
-        </CartProvider>
+        <ToastProvider>
+          <AuthProvider>
+            <CartProvider>
+              <WishlistProvider>
+                <ScrollRevealProvider />
+                <SiteHeader />
+                {children}
+                <ScrollToTop />
+              </WishlistProvider>
+            </CartProvider>
+          </AuthProvider>
+        </ToastProvider>
       </body>
     </html>
   );

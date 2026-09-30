@@ -1,0 +1,628 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useState, useMemo } from "react";
+import {
+  getProducts,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+  toggleProductStock,
+  CATEGORIES,
+  type CreateProductInput,
+} from "@/lib/services/product.service";
+import type { Product } from "@/lib/types/product";
+import { formatPrice } from "@/lib/utils/format";
+import { useToast } from "@/hooks/use-toast";
+
+const IMAGE_PRESETS = [
+  "/images/products/focus-task.png",
+  "/images/products/cloud-mesh-air.png",
+  "/images/products/ergo-pro-x1.png",
+  "/images/products/executive-oak.png",
+  "/images/products/lounge-heritage.png",
+  "/images/products/motion-lite.png",
+  "/images/products/play-seat-pro.png",
+  "/images/products/aero-support.png",
+];
+
+export default function AdminProductsPage() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [selectedStock, setSelectedStock] = useState("all");
+  const toast = useToast();
+
+  // Modal State
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
+
+  // Form State
+  const [formData, setFormData] = useState<{
+    name: string;
+    category: Product["category"];
+    price: number;
+    oldPrice: number;
+    stockQuantity: number;
+    description: string;
+    image: string;
+    material: string;
+    color: string;
+    size: string;
+    weight: string;
+    capacity: string;
+    warranty: string;
+  }>({
+    name: "",
+    category: "Ghế công thái học",
+    price: 5500000,
+    oldPrice: 6500000,
+    stockQuantity: 20,
+    description: "",
+    image: IMAGE_PRESETS[0],
+    material: "Lưới cao cấp & khung hợp kim",
+    color: "Đen tiêu chuẩn",
+    size: "65 × 65 × 115–125 cm",
+    weight: "18 kg",
+    capacity: "135 kg",
+    warranty: "3 năm",
+  });
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadData = async () => {
+      try {
+        const res = await getProducts();
+        if (!isMounted) return;
+        setProducts(res.items);
+        setIsLoading(false);
+      } catch {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+
+    loadData();
+
+    const handleProductsChange = () => {
+      loadData();
+    };
+
+    window.addEventListener("ergochair-products-change", handleProductsChange);
+    return () => {
+      isMounted = false;
+      window.removeEventListener("ergochair-products-change", handleProductsChange);
+    };
+  }, [refreshKey]);
+
+  // Filter products
+  const filteredProducts = useMemo(() => {
+    return products.filter((p) => {
+      // Search
+      if (search.trim()) {
+        const query = search.toLowerCase();
+        const matchName = p.name.toLowerCase().includes(query);
+        const matchSlug = p.slug.toLowerCase().includes(query);
+        const matchCat = p.category.toLowerCase().includes(query);
+        if (!matchName && !matchSlug && !matchCat) return false;
+      }
+
+      // Category
+      if (selectedCategory !== "all" && p.category !== selectedCategory) {
+        return false;
+      }
+
+      // Stock
+      if (selectedStock === "in-stock" && !p.inStock) return false;
+      if (selectedStock === "out-of-stock" && p.inStock) return false;
+
+      return true;
+    });
+  }, [products, search, selectedCategory, selectedStock]);
+
+  const handleOpenCreateModal = () => {
+    setEditingProduct(null);
+    setFormData({
+      name: "",
+      category: "Ghế công thái học",
+      price: 5500000,
+      oldPrice: 6500000,
+      stockQuantity: 20,
+      description: "",
+      image: IMAGE_PRESETS[0],
+      material: "Lưới cao cấp & khung hợp kim",
+      color: "Đen tiêu chuẩn",
+      size: "65 × 65 × 115–125 cm",
+      weight: "18 kg",
+      capacity: "135 kg",
+      warranty: "3 năm",
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEditModal = (product: Product) => {
+    setEditingProduct(product);
+    setFormData({
+      name: product.name,
+      category: product.category,
+      price: product.price,
+      oldPrice: product.oldPrice || product.price,
+      stockQuantity: product.stockQuantity,
+      description: product.description,
+      image: product.image,
+      material: product.material,
+      color: product.color,
+      size: product.size,
+      weight: product.weight,
+      capacity: product.capacity,
+      warranty: product.warranty,
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleSaveProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name.trim()) {
+      toast.error("Vui lòng nhập tên sản phẩm.");
+      return;
+    }
+    if (formData.price <= 0) {
+      toast.error("Giá bán phải lớn hơn 0đ.");
+      return;
+    }
+
+    try {
+      if (editingProduct) {
+        await updateProduct(editingProduct.id, {
+          name: formData.name,
+          category: formData.category,
+          price: Number(formData.price),
+          oldPrice: Number(formData.oldPrice),
+          compareAtPrice: Number(formData.oldPrice),
+          stockQuantity: Number(formData.stockQuantity),
+          inStock: Number(formData.stockQuantity) > 0,
+          description: formData.description,
+          image: formData.image,
+          images: [formData.image],
+          material: formData.material,
+          color: formData.color,
+          size: formData.size,
+          weight: formData.weight,
+          capacity: formData.capacity,
+          warranty: formData.warranty,
+        });
+        toast.success(`Cập nhật "${formData.name}" thành công!`);
+      } else {
+        const input: CreateProductInput = {
+          name: formData.name,
+          category: formData.category,
+          price: Number(formData.price),
+          oldPrice: Number(formData.oldPrice),
+          stockQuantity: Number(formData.stockQuantity),
+          description: formData.description || `Sản phẩm ${formData.name} cao cấp từ ErgoChair`,
+          image: formData.image,
+          material: formData.material,
+          color: formData.color,
+          size: formData.size,
+          weight: formData.weight,
+          capacity: formData.capacity,
+          warranty: formData.warranty,
+        };
+        await createProduct(input);
+        toast.success(`Đã thêm sản phẩm mới "${formData.name}" thành công!`);
+      }
+      setIsModalOpen(false);
+      setRefreshKey((k) => k + 1);
+    } catch {
+      toast.error("Có lỗi xảy ra khi lưu sản phẩm.");
+    }
+  };
+
+  const handleToggleStock = async (id: string, name: string) => {
+    try {
+      const updated = await toggleProductStock(id);
+      if (updated) {
+        toast.info(`Đã đổi trạng thái "${name}": ${updated.inStock ? "Còn hàng" : "Tạm hết hàng"}`);
+        setRefreshKey((k) => k + 1);
+      }
+    } catch {
+      toast.error("Không thể thay đổi trạng thái tồn kho.");
+    }
+  };
+
+  const handleDeleteProduct = async (id: string, name: string) => {
+    if (confirm(`Bạn có chắc chắn muốn xóa sản phẩm "${name}" khỏi hệ thống?`)) {
+      setDeletingProductId(id);
+      try {
+        const ok = await deleteProduct(id);
+        if (ok) {
+          toast.success(`Đã xóa sản phẩm "${name}" thành công.`);
+          setRefreshKey((k) => k + 1);
+        }
+      } catch {
+        toast.error("Lỗi khi xóa sản phẩm.");
+      } finally {
+        setDeletingProductId(null);
+      }
+    }
+  };
+
+  return (
+    <div className="admin-products-page">
+      {/* Top action header */}
+      <div className="admin-filter-bar">
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
+          <div className="admin-search-box">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Tìm theo tên, danh mục..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+
+          <select
+            className="admin-select"
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+          >
+            <option value="all">Tất cả danh mục ({products.length})</option>
+            {CATEGORIES.filter((c) => c !== "Tất cả loại ghế").map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+
+          <select
+            className="admin-select"
+            value={selectedStock}
+            onChange={(e) => setSelectedStock(e.target.value)}
+          >
+            <option value="all">Tất cả trạng thái kho</option>
+            <option value="in-stock">Còn hàng</option>
+            <option value="out-of-stock">Tạm hết hàng</option>
+          </select>
+        </div>
+
+        <button
+          type="button"
+          className="admin-btn admin-btn-primary"
+          onClick={handleOpenCreateModal}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          <span>Thêm Sản Phẩm Mới</span>
+        </button>
+      </div>
+
+      {/* Product List Table */}
+      <div className="admin-card">
+        <div className="admin-card-header">
+          <h2 className="admin-card-title">
+            Danh Sách Sản Phẩm ({filteredProducts.length} / {products.length})
+          </h2>
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            <span className="admin-badge in_stock">
+              Còn hàng: {products.filter((p) => p.inStock).length}
+            </span>
+            <span className="admin-badge out_of_stock">
+              Tạm hết: {products.filter((p) => !p.inStock).length}
+            </span>
+          </div>
+        </div>
+
+        <div className="admin-card-body" style={{ padding: 0 }}>
+          <div className="admin-table-wrapper">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Sản phẩm</th>
+                  <th>Danh mục</th>
+                  <th>Giá bán</th>
+                  <th>Giá gốc</th>
+                  <th>Tồn kho</th>
+                  <th>Trạng thái kho</th>
+                  <th style={{ textAlign: "right" }}>Thao tác</th>
+                </tr>
+              </thead>
+              <tbody>
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={7} style={{ textAlign: "center", padding: "3rem", color: "#64748b" }}>
+                      Đang tải danh sách sản phẩm...
+                    </td>
+                  </tr>
+                ) : filteredProducts.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} style={{ textAlign: "center", padding: "3rem", color: "#64748b" }}>
+                      Không tìm thấy sản phẩm nào phù hợp bộ lọc.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredProducts.map((p) => (
+                    <tr key={p.id}>
+                      <td>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
+                          <img
+                            src={p.image}
+                            alt={p.name}
+                            style={{
+                              width: "48px",
+                              height: "48px",
+                              borderRadius: "8px",
+                              objectFit: "cover",
+                              background: "#f8fafc",
+                              border: "1px solid #e2e8f0",
+                            }}
+                          />
+                          <div>
+                            <div style={{ fontWeight: 600, color: "#0f172a" }}>{p.name}</div>
+                            <div style={{ fontSize: "0.75rem", color: "#64748b" }}>
+                              ID: {p.id} • Slug: /{p.slug}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <span style={{ fontSize: "0.8rem", padding: "0.2rem 0.5rem", background: "#f1f5f9", borderRadius: "4px" }}>
+                          {p.category}
+                        </span>
+                      </td>
+                      <td style={{ fontWeight: 600, color: "#0284c7" }}>
+                        {formatPrice(p.price)}
+                      </td>
+                      <td style={{ color: "#94a3b8", textDecoration: "line-through", fontSize: "0.8rem" }}>
+                        {p.oldPrice ? formatPrice(p.oldPrice) : "—"}
+                      </td>
+                      <td>
+                        <span style={{ fontWeight: 600 }}>{p.stockQuantity}</span> chiếc
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleStock(p.id, p.name)}
+                          className={`admin-badge ${p.inStock ? "in_stock" : "out_of_stock"}`}
+                          style={{ cursor: "pointer", border: "none" }}
+                          title="Click để đổi nhanh trạng thái kho"
+                        >
+                          <span className="admin-badge-dot" />
+                          {p.inStock ? "Còn hàng" : "Tạm hết"}
+                        </button>
+                      </td>
+                      <td style={{ textAlign: "right" }}>
+                        <div style={{ display: "inline-flex", gap: "0.4rem" }}>
+                          <Link
+                            href={`/products/${p.id}`}
+                            target="_blank"
+                            className="admin-btn admin-btn-outline admin-btn-sm"
+                            title="Xem trang sản phẩm ngoài website"
+                          >
+                            Xem
+                          </Link>
+                          <button
+                            type="button"
+                            className="admin-btn admin-btn-outline admin-btn-sm"
+                            onClick={() => handleOpenEditModal(p)}
+                            title="Chỉnh sửa sản phẩm"
+                          >
+                            Sửa
+                          </button>
+                          <button
+                            type="button"
+                            className="admin-btn admin-btn-danger admin-btn-sm"
+                            onClick={() => handleDeleteProduct(p.id, p.name)}
+                            disabled={deletingProductId === p.id}
+                            title="Xóa sản phẩm"
+                          >
+                            Xóa
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* Modal Add / Edit Product */}
+      {isModalOpen && (
+        <div className="admin-modal-overlay" onClick={() => setIsModalOpen(false)}>
+          <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header">
+              <h3 className="admin-modal-title">
+                {editingProduct ? `Chỉnh Sửa: ${editingProduct.name}` : "Thêm Sản Phẩm Mới"}
+              </h3>
+              <button
+                type="button"
+                className="admin-btn-icon"
+                onClick={() => setIsModalOpen(false)}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b" }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveProduct}>
+              <div className="admin-modal-body">
+                <div className="admin-form-grid">
+                  {/* Tên sản phẩm */}
+                  <div className="admin-form-group admin-form-full">
+                    <label className="admin-form-label">Tên sản phẩm *</label>
+                    <input
+                      type="text"
+                      className="admin-input"
+                      required
+                      placeholder="VD: Ergo Air Pro X"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    />
+                  </div>
+
+                  {/* Danh mục */}
+                  <div className="admin-form-group">
+                    <label className="admin-form-label">Danh mục *</label>
+                    <select
+                      className="admin-input"
+                      value={formData.category}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    >
+                      {CATEGORIES.filter((c) => c !== "Tất cả loại ghế").map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Số lượng tồn kho */}
+                  <div className="admin-form-group">
+                    <label className="admin-form-label">Số lượng tồn kho *</label>
+                    <input
+                      type="number"
+                      min="0"
+                      className="admin-input"
+                      required
+                      value={formData.stockQuantity}
+                      onChange={(e) => setFormData({ ...formData, stockQuantity: Number(e.target.value) })}
+                    />
+                  </div>
+
+                  {/* Giá bán */}
+                  <div className="admin-form-group">
+                    <label className="admin-form-label">Giá bán (VND) *</label>
+                    <input
+                      type="number"
+                      min="1000"
+                      step="10000"
+                      className="admin-input"
+                      required
+                      value={formData.price}
+                      onChange={(e) => setFormData({ ...formData, price: Number(e.target.value) })}
+                    />
+                  </div>
+
+                  {/* Giá so sánh (Giá gốc) */}
+                  <div className="admin-form-group">
+                    <label className="admin-form-label">Giá gốc trước giảm (VND)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="10000"
+                      className="admin-input"
+                      value={formData.oldPrice}
+                      onChange={(e) => setFormData({ ...formData, oldPrice: Number(e.target.value) })}
+                    />
+                  </div>
+
+                  {/* Chọn ảnh đại diện có sẵn */}
+                  <div className="admin-form-group admin-form-full">
+                    <label className="admin-form-label">Chọn ảnh đại diện mẫu</label>
+                    <div className="admin-image-presets">
+                      {IMAGE_PRESETS.map((img) => (
+                        <div
+                          key={img}
+                          className={`admin-image-thumb ${formData.image === img ? "selected" : ""}`}
+                          onClick={() => setFormData({ ...formData, image: img })}
+                          title={img}
+                        >
+                          <img src={img} alt="preset" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Hoặc nhập URL ảnh */}
+                  <div className="admin-form-group admin-form-full">
+                    <label className="admin-form-label">Hoặc nhập URL ảnh tùy chỉnh</label>
+                    <input
+                      type="text"
+                      className="admin-input"
+                      placeholder="/images/products/focus-task.png hoặc https://..."
+                      value={formData.image}
+                      onChange={(e) => setFormData({ ...formData, image: e.target.value })}
+                    />
+                  </div>
+
+                  {/* Mô tả */}
+                  <div className="admin-form-group admin-form-full">
+                    <label className="admin-form-label">Mô tả sản phẩm</label>
+                    <textarea
+                      className="admin-textarea"
+                      rows={3}
+                      placeholder="Mô tả các đặc điểm nổi bật của ghế..."
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    />
+                  </div>
+
+                  {/* Thông số kỹ thuật bổ sung */}
+                  <div className="admin-form-group">
+                    <label className="admin-form-label">Chất liệu</label>
+                    <input
+                      type="text"
+                      className="admin-input"
+                      value={formData.material}
+                      onChange={(e) => setFormData({ ...formData, material: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="admin-form-group">
+                    <label className="admin-form-label">Màu sắc</label>
+                    <input
+                      type="text"
+                      className="admin-input"
+                      value={formData.color}
+                      onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="admin-form-group">
+                    <label className="admin-form-label">Bảo hành</label>
+                    <input
+                      type="text"
+                      className="admin-input"
+                      value={formData.warranty}
+                      onChange={(e) => setFormData({ ...formData, warranty: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="admin-form-group">
+                    <label className="admin-form-label">Tải trọng tối đa</label>
+                    <input
+                      type="text"
+                      className="admin-input"
+                      value={formData.capacity}
+                      onChange={(e) => setFormData({ ...formData, capacity: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="admin-modal-footer">
+                <button
+                  type="button"
+                  className="admin-btn admin-btn-outline"
+                  onClick={() => setIsModalOpen(false)}
+                >
+                  Hủy bỏ
+                </button>
+                <button type="submit" className="admin-btn admin-btn-primary">
+                  {editingProduct ? "Lưu Thay Đổi" : "Thêm Sản Phẩm"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

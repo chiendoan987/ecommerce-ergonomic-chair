@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useState } from "react";
 
 type ProductSearchProps = {
   className?: string;
@@ -13,11 +13,14 @@ export function ProductSearch({ className = "", inputId = "product-search-input"
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [value, setValue] = useState(searchParams.get("search") ?? "");
+  const searchParamValue = searchParams.get("search") ?? "";
+  const [value, setValue] = useState(searchParamValue);
+  const [prevSearchParam, setPrevSearchParam] = useState(searchParamValue);
 
-  useEffect(() => {
-    setValue(searchParams.get("search") ?? "");
-  }, [searchParams]);
+  if (searchParamValue !== prevSearchParam) {
+    setPrevSearchParam(searchParamValue);
+    setValue(searchParamValue);
+  }
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

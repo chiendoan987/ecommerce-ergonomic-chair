@@ -1,0 +1,574 @@
+/* ==========================================================================
+   ERGOCHAIR - USER ACCOUNT DASHBOARD STYLES (Modular & Clean)
+   ========================================================================== */
+
+/* 1. Account Page Layout */
+.account-page {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 24px 24px 80px;
+  width: 100%;
+}
+
+.account-loading-page,
+.account-unauth-container {
+  max-width: 520px;
+  margin: 60px auto;
+  text-align: center;
+  padding: 48px 24px;
+}
+
+.unauth-icon {
+  font-size: 44px;
+  margin-bottom: 16px;
+}
+
+.account-unauth-container h2 {
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: #171717;
+}
+
+.account-unauth-container p {
+  color: #777;
+  font-size: 14px;
+  line-height: 1.6;
+  margin-bottom: 28px;
+}
+
+.unauth-actions {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+}
+
+/* 2. Account Hero Header */
+.account-hero-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #faf8f5;
+  border: 1px solid #ede5d8;
+  border-radius: 16px;
+  padding: 32px 36px;
+  margin-bottom: 32px;
+  gap: 20px;
+}
+
+@media (max-width: 768px) {
+  .account-hero-header {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 24px;
+  }
+}
+
+.account-user-badge-wrap {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.account-avatar-large {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #8b7355 0%, #6f5c44 100%);
+  color: #fff;
+  font-size: 24px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(139, 115, 85, 0.25);
+}
+
+.account-name-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.account-name-row h1 {
+  font-family: var(--font-playfair, "Playfair Display", Georgia, serif);
+  font-size: 24px;
+  font-weight: 600;
+  color: #171717;
+  margin: 0;
+}
+
+.account-role-tag {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 20px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.account-role-tag.role-admin {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.account-role-tag.role-customer {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.account-user-meta {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+  color: #666;
+  margin: 0;
+  flex-wrap: wrap;
+}
+
+/* 3. Tabs Navigation */
+.account-tabs-bar {
+  display: flex;
+  border-bottom: 1px solid #e5e5e5;
+  margin-bottom: 32px;
+  gap: 28px;
+  overflow-x: auto;
+}
+
+.account-tab-item {
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  padding: 12px 4px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #777;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.account-tab-item:hover {
+  color: #171717;
+}
+
+.account-tab-item.active {
+  color: #171717;
+  font-weight: 600;
+  border-bottom-color: #8b7355;
+}
+
+/* 4. Order History Cards */
+.orders-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.order-history-card {
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.order-history-card:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+  border-color: #ede5d8;
+}
+
+.order-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #faf9f7;
+  padding: 14px 20px;
+  border-bottom: 1px solid #eee;
+}
+
+.order-id-date {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.order-id-date strong {
+  color: #171717;
+}
+
+.order-id-date time {
+  color: #888;
+  font-size: 12px;
+}
+
+.order-status-badge {
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+.order-status-badge.status-pending { background: #fef3c7; color: #b45309; }
+.order-status-badge.status-processing { background: #eff6ff; color: #1d4ed8; }
+.order-status-badge.status-shipped { background: #e0e7ff; color: #4338ca; }
+.order-status-badge.status-completed { background: #ecfdf5; color: #047857; }
+.order-status-badge.status-cancelled { background: #fef2f2; color: #b91c1c; }
+
+.order-items-list {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.order-item-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.order-item-row img {
+  width: 52px;
+  height: 52px;
+  object-fit: cover;
+  border-radius: 8px;
+  background: #f7f7f5;
+}
+
+.order-item-details {
+  flex-grow: 1;
+}
+
+.order-item-details h4 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 2px;
+}
+
+.order-item-details h4 a {
+  color: #171717;
+  text-decoration: none;
+}
+
+.order-item-details h4 a:hover {
+  color: #8b7355;
+}
+
+.order-item-details p {
+  font-size: 12px;
+  color: #777;
+  margin: 0;
+}
+
+.order-item-price {
+  font-size: 14px;
+  font-weight: 600;
+  color: #171717;
+}
+
+.order-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  background: #fafafa;
+  border-top: 1px solid #eee;
+  gap: 20px;
+}
+
+@media (max-width: 640px) {
+  .order-card-footer {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+.order-meta-info p {
+  font-size: 12px;
+  color: #666;
+  margin: 2px 0;
+}
+
+.order-total-block {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.order-total-block span {
+  display: block;
+  font-size: 11px;
+  color: #777;
+}
+
+.order-total-block strong {
+  font-size: 17px;
+  font-weight: 700;
+  color: #8b7355;
+}
+
+/* 5. Address Cards & Form */
+.addresses-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.addresses-header h3 {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 4px;
+  color: #171717;
+}
+
+.addresses-header p {
+  font-size: 13px;
+  color: #777;
+  margin: 0;
+}
+
+.address-form-box {
+  background: #faf8f5;
+  border: 1px solid #ede5d8;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 28px;
+}
+
+.address-form-box h4 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 16px;
+}
+
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+@media (max-width: 640px) {
+  .form-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.address-form-box .form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.address-form-box .form-field label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #333;
+}
+
+.address-form-box .form-field input,
+.address-form-box .form-field select {
+  border: 1px solid #d4d4d4;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13.5px;
+  font-family: inherit;
+  outline: none;
+  background: #fff;
+  transition: border-color 0.2s ease;
+}
+
+.address-form-box .form-field input:focus,
+.address-form-box .form-field select:focus {
+  border-color: #8b7355;
+  box-shadow: 0 0 0 3px rgba(139, 115, 85, 0.12);
+}
+
+.checkbox-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #555;
+  margin: 14px 0;
+  cursor: pointer;
+}
+
+.address-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.address-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+@media (max-width: 900px) {
+  .address-cards-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .address-cards-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.address-card {
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  padding: 20px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.2s ease;
+}
+
+.address-card.is-default {
+  border-color: #8b7355;
+  background: #faf9f7;
+  box-shadow: 0 4px 12px rgba(139, 115, 85, 0.08);
+}
+
+.address-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.address-card-top strong {
+  font-size: 15px;
+  color: #171717;
+}
+
+.default-badge {
+  font-size: 10.5px;
+  font-weight: 600;
+  background: #8b7355;
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.address-phone {
+  font-size: 13px;
+  color: #666;
+  margin: 0 0 6px;
+}
+
+.address-location {
+  font-size: 13px;
+  color: #444;
+  line-height: 1.5;
+  margin: 0 0 16px;
+  flex-grow: 1;
+}
+
+.address-card-actions {
+  display: flex;
+  gap: 10px;
+  border-top: 1px solid #eee;
+  padding-top: 12px;
+}
+
+.btn-set-default {
+  background: transparent;
+  border: 0;
+  color: #8b7355;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.btn-delete-addr {
+  background: transparent;
+  border: 0;
+  color: #b91c1c;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+  margin-left: auto;
+}
+
+/* 6. Profile Edit Form */
+.profile-form-container {
+  max-width: 540px;
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 14px;
+  padding: 32px;
+}
+
+.profile-form-container h3 {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+
+.profile-subtitle {
+  font-size: 13px;
+  color: #777;
+  margin: 0 0 24px;
+}
+
+.profile-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.profile-form .form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.profile-form .form-field label {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #333;
+}
+
+.profile-form .form-field input {
+  border: 1px solid #d4d4d4;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.profile-form .form-field input:focus {
+  border-color: #8b7355;
+  box-shadow: 0 0 0 3px rgba(139, 115, 85, 0.12);
+}
+
+.input-disabled {
+  background: #f5f5f5;
+  cursor: not-allowed;
+  color: #888;
+}
+
+.field-hint {
+  font-size: 11px;
+  color: #999;
+}
+
+.profile-actions {
+  margin-top: 10px;
+}

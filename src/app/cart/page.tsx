@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCart } from "@/components/cart-provider";
-import { formatPrice } from "@/lib/products";
+import { formatPrice } from "@/lib/utils/format";
 
 const SHIPPING_FEE = 30000;
 

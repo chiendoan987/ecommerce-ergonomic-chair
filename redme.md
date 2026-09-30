@@ -16,6 +16,8 @@
    - [Trang Đặt Hàng & Thanh Toán (Checkout)](#5-trang-đặt-hàng--thanh-toán-checkout---checkout)
    - [Trang Xác Nhận Đơn Hàng (Order Success)](#6-trang-xác-nhận-đơn-hàng---order-success)
    - [Trang Giới Thiệu & Liên Hệ (About & Contact)](#7-trang-giới-thiệu--liên-hệ---about--contact)
+   - [Yêu Thích & Đánh Giá Sản Phẩm (Wishlist & Reviews)](#8-yêu-thích--đánh-giá-sản-phẩm-wishlist--reviews)
+   - [Tài Khoản Người Dùng & Sổ Địa Chỉ (Auth & Account)](#9-tài-khoản-người-dùng--sổ-địa-chỉ-auth--account---login--account)
 5. [Các Điểm Nhấn Kiến Trúc & Trải Nghiệm (UX/UI Highlights)](#-các-điểm-nhấn-kiến-trúc--trải-nghiệm-uxui-highlights)
 6. [Hướng Dẫn Cài Đặt & Chạy Dự Án](#-hướng-dẫn-cài-đặt--chạy-dự-án)
 
@@ -44,39 +46,61 @@
 
 ---
 
+---
+
 ## 📁 Cấu Trúc Thư Mục Hệ Thống
 
 ```text
 ecommerce-ergonomic-chair/
+├── prisma/                     # Cấu hình ORM Prisma sẵn sàng cho MySQL
+│   └── schema.prisma           # Định nghĩa Model Product, User, Order, Address, Review...
 ├── public/                     # Ảnh tĩnh, icon, thư viện ảnh sản phẩm
 │   ├── images/products/        # Ảnh đại diện & bộ sưu tập ảnh chi tiết (gallery)
 │   └── favicon.ico
 ├── src/
 │   ├── app/                    # Next.js App Router (Các trang chính)
-│   │   ├── layout.tsx          # Root Layout: Tích hợp Provider, Font, Header toàn cục
+│   │   ├── layout.tsx          # Root Layout: Tích hợp Toast, Auth, Wishlist, Cart Providers
 │   │   ├── template.tsx        # Template chuyển trang
-│   │   ├── globals.css         # Hệ thống Design Tokens, Reset CSS & Toàn bộ style giao diện
+│   │   ├── not-found.tsx       # Trang 404 tùy biến chuẩn thương hiệu
+│   │   ├── globals.css         # Design Tokens, Reset CSS & Toàn bộ style giao diện
 │   │   ├── page.tsx            # Trang Chủ (Home Landing Page)
 │   │   ├── products/
 │   │   │   ├── page.tsx        # Danh mục sản phẩm (Lọc realtime, tìm kiếm, cuộn tự động)
-│   │   │   └── [id]/page.tsx   # Chi tiết sản phẩm (Gallery, thông số, đánh giá, kiểm soát kho)
+│   │   │   └── [id]/           # Dynamic SEO Metadata & Chi tiết sản phẩm
 │   │   ├── cart/page.tsx       # Giỏ hàng & áp dụng mã giảm giá
-│   │   ├── checkout/page.tsx   # Form thanh toán & validate thông tin giao nhận
+│   │   ├── checkout/page.tsx   # Thanh toán, tự điền địa chỉ người dùng hoặc mua không tài khoản
 │   │   ├── order-success/page.tsx # Trang chúc mừng đặt hàng thành công
+│   │   ├── wishlist/page.tsx   # Trang danh sách sản phẩm yêu thích
+│   │   ├── login/page.tsx      # Đăng nhập / Đăng ký (kèm tài khoản Demo 1 chạm)
+│   │   ├── register/page.tsx   # Điều hướng đồng bộ tới Login/Register tab
+│   │   ├── account/page.tsx    # Bảng điều khiển tài khoản: Thông tin, Sổ địa chỉ, Lịch sử đơn hàng
 │   │   ├── about/page.tsx      # Trang giới thiệu thương hiệu & câu chuyện ErgoChair
 │   │   └── contact/page.tsx    # Trang liên hệ, hotline, địa chỉ showroom
 │   ├── components/             # Các Component tái sử dụng
-│   │   ├── site-header.tsx     # Header toàn cục, dropdown danh mục, tìm kiếm, badge giỏ
+│   │   ├── site-header.tsx     # Header toàn cục: Điều hướng, Tìm kiếm, Wishlist, Giỏ hàng, Auth Avatar
+│   │   ├── product-card.tsx    # Thẻ sản phẩm chuẩn hóa với nút Wishlist & nhãn tình trạng kho
+│   │   ├── product-reviews.tsx # Khu vực đánh giá, phân bố sao và form gửi nhận xét
+│   │   ├── recently-viewed-products.tsx # Băng chuyền sản phẩm vừa xem
+│   │   ├── toast-provider.tsx  # Cổng thông báo nổi toàn cục (Toast Notifications)
 │   │   ├── cart-provider.tsx   # Context quản lý giỏ hàng & logic bảo vệ kho
-│   │   ├── product-search.tsx  # Ô tìm kiếm sản phẩm thông minh với gợi ý
-│   │   ├── scroll-reveal-provider.tsx # Bộ điều khiển hiệu ứng hiện dần khi cuộn
-│   │   └── scroll-to-top.tsx   # Nút bấm cuộn nhanh lên đầu trang
-│   └── lib/                    # Dữ liệu & Hàm tiện ích
-│       ├── products.ts         # Danh sách dữ liệu sản phẩm mẫu (In-stock, Gallery, Specs...)
-│       └── search.ts           # Hàm chuẩn hóa chuỗi tìm kiếm tiếng Việt không dấu
-├── package.json                # Danh sách dependencies & scripts
-├── tsconfig.json               # Cấu hình TypeScript
-└── README.md                   # Tài liệu hướng dẫn hệ thống
+│   │   └── ...
+│   ├── contexts/               # Các React Context chia sẻ trạng thái
+│   │   ├── auth-context.tsx    # Trạng thái đăng nhập, tài khoản người dùng & sổ địa chỉ
+│   │   ├── wishlist-context.tsx# Quản lý danh sách yêu thích
+│   │   └── toast-context.tsx   # Hệ thống thông báo toast (success, error, info)
+│   ├── hooks/                  # Custom React Hooks
+│   │   ├── use-auth.ts         # Hook thao tác auth & profile
+│   │   ├── use-wishlist.ts     # Hook thao tác wishlist
+│   │   ├── use-toast.ts        # Hook bắn thông báo toast
+│   │   └── use-recently-viewed.ts # Hook lưu và đọc sản phẩm vừa xem
+│   └── lib/                    # Kiến trúc tầng dịch vụ (Service Layer & Types)
+│       ├── types/              # Chuẩn hóa dữ liệu tương thích Prisma (product, order, user, cart...)
+│       ├── services/           # Service Layer đóng gói nghiệp vụ (auth, order, product, wishlist...)
+│       ├── data/               # Mock data cô lập (mock-products, mock-users, mock-orders...)
+│       └── utils/              # Tiện ích định dạng tiền tệ, xử lý chuỗi
+├── .env.example                # Khung biến môi trường chuẩn bị cho DB & API
+├── package.json                # Dependencies & scripts
+└── tsconfig.json               # Cấu hình TypeScript nghiêm ngặt (strict: true)
 ```
 
 ---
@@ -163,6 +187,39 @@ ecommerce-ergonomic-chair/
 ### 7. Trang Giới Thiệu & Liên Hệ (`/about` & `/contact`)
 - **Về chúng tôi (`/about`):** Giới thiệu triết lý sản phẩm, tinh thần lấy sức khỏe cơ thể làm trung tâm, vật liệu bền vững.
 - **Liên hệ (`/contact`):** Hotline hỗ trợ `1800 6868`, email tư vấn, địa chỉ văn phòng/showroom thực tế tại Hà Nội.
+
+---
+
+### 8. Yêu Thích & Đánh Giá Sản Phẩm (Wishlist & Reviews)
+- **Hệ thống Yêu Thích (`/wishlist` & Quick Toggle):**
+  - Nút biểu tượng trái tim tiện lợi trên mỗi thẻ sản phẩm (`ProductCard`) và trang chi tiết sản phẩm.
+  - Lưu trữ bền vững qua `WishlistProvider` và `wishlist.service.ts` (LocalStorage).
+  - Badge đếm số lượng trực tiếp trên thanh Header.
+  - Trang `/wishlist` hỗ trợ xem nhanh, thêm vào giỏ hàng hoặc xóa sản phẩm.
+- **Hệ thống Đánh Giá Sản Phẩm (Customer Reviews):**
+  - Hiển thị trực quan điểm trung bình và biểu đồ thanh phân bố sao (5 sao đến 1 sao).
+  - Form gửi nhận xét trực tiếp (chọn số sao, họ tên, email, nội dung).
+  - Thông báo thành công với hệ thống Toast toàn cục, đóng gói qua `review.service.ts`.
+- **Sản Phẩm Đã Xem Gần Đây (Recently Viewed):**
+  - Băng chuyền hiển thị các mẫu ghế người dùng vừa ghé thăm, cập nhật tự động qua `recently-viewed.service.ts`.
+
+---
+
+### 9. Tài Khoản Người Dùng & Sổ Địa Chỉ (Auth & Account - `/login` & `/account`)
+- **Đăng Nhập & Đăng Ký Thống Nhất (`/login`):**
+  - Chuyển đổi mượt giữa 2 tab Đăng nhập và Đăng ký.
+  - Hỗ trợ **Đăng nhập 1-chạm (Quick Demo Accounts)** với tài khoản Khách hàng mẫu (`quan.tran@example.com`) và tài khoản Quản trị viên (`admin@ergochair.vn`).
+  - Quản lý trạng thái đăng nhập qua `auth.service.ts` và `AuthProvider`.
+- **Trang Quản Lý Tài Khoản (`/account`):**
+  - **Lịch sử đơn hàng:** Tra cứu toàn bộ đơn hàng của tài khoản, trạng thái (Chờ xử lý, Đang giao, Đã giao...), danh sách mặt hàng, phương thức thanh toán và tổng tiền.
+  - **Sổ địa chỉ giao hàng:** Thêm địa chỉ mới, chỉnh sửa, xóa và chọn địa chỉ nhận hàng mặc định.
+  - **Thông tin cá nhân:** Cập nhật họ tên, số điện thoại người dùng nhanh chóng.
+- **Thanh toán Thông minh (Smart Checkout - `/checkout`):**
+  - Tự động điền thông tin và địa chỉ giao hàng mặc định nếu người dùng đã đăng nhập.
+  - Bộ chọn nhanh các địa chỉ đã lưu trong sổ địa chỉ.
+  - Hỗ trợ mua không cần đăng nhập (Guest Checkout) kèm banner khuyến khích đăng nhập.
+  - Đa dạng phương thức thanh toán: COD, Chuyển khoản ngân hàng, VNPAY QR, Ví điện tử MoMo.
+  - Lưu vết đơn hàng vào `order.service.ts` gắn với ID người dùng để hiển thị ngay trong lịch sử mua hàng.
 
 ---
 

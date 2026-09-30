@@ -1,15 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useAuth } from "@/hooks/use-auth";
 import { useCart } from "@/components/cart-provider";
-import { formatPrice, products, type Product } from "@/lib/products";
+import { useWishlist } from "@/hooks/use-wishlist";
+import { useToast } from "@/hooks/use-toast";
+import { RecentlyViewedProducts } from "@/components/recently-viewed-products";
+import { getFeaturedProducts, getProductById } from "@/lib/services/product.service";
+import { formatPrice } from "@/lib/utils/format";
+import type { Product } from "@/lib/types/product";
 
 const categories = [
-  { name: "Ghế công thái học", count: "Khám phá thiết kế", image: products[1].image },
-  { name: "Ghế văn phòng", count: "Làm việc tập trung", image: products[7].image },
-  { name: "Ghế gaming", count: "Chơi theo cách của bạn", image: products[4].image },
-  { name: "Ghế lãnh đạo", count: "Phong cách lãnh đạo", image: products[2].image },
+  { name: "Ghế công thái học", count: "Khám phá thiết kế", image: "/images/products/cloud-mesh-air.png" },
+  { name: "Ghế văn phòng", count: "Làm việc tập trung", image: "/images/products/ergo-pro-x1.png" },
+  { name: "Ghế gaming", count: "Chơi theo cách của bạn", image: "/images/products/play-seat-pro.png" },
+  { name: "Ghế lãnh đạo", count: "Phong cách lãnh đạo", image: "/images/products/executive-oak.png" },
 ];
 
 function Icon({ name }: { name: "arrow" | "bag" | "check" | "search" | "menu" }) {
@@ -23,25 +30,52 @@ function Icon({ name }: { name: "arrow" | "bag" | "check" | "search" | "menu" })
   return <svg aria-hidden="true" className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">{paths[name]}</svg>;
 }
 
-function ProductCard({ product, index, onAdded }: { product: Product; index: number; onAdded: (name: string) => void }) {
+function ProductCard({ product, index }: { product: Product; index: number }) {
   const { addItem } = useCart();
+  const { isInWishlist, toggleWishlist } = useWishlist();
+  const toast = useToast();
+  const isWishlisted = isInWishlist(product.id);
   const salePercent = Math.round((1 - product.price / product.oldPrice) * 100);
 
+  const handleAddToCart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    addItem(product);
+    toast.success(`Đã thêm "${product.name}" vào giỏ hàng`);
+  };
+
+  const handleToggleWishlist = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    toggleWishlist(product.id);
+  };
+
   return <article className="home-product-card" data-reveal="up" data-reveal-delay={String(index * 90)}>
-    <Link className="home-product-image" href={`/products/${product.id}`}>
-      <img src={product.image} alt={product.name} />
-      <span className={product.inStock ? "home-badge" : "home-badge home-badge-muted"}>{index === 0 ? "Bán chạy" : product.inStock ? `-${salePercent}%` : "Tạm hết hàng"}</span>
-      <span className="home-product-arrow"><Icon name="arrow" /></span>
-    </Link>
+    <div style={{ position: "relative" }}>
+      <Link className="home-product-image" href={`/products/${product.id}`}>
+        <img src={product.image} alt={product.name} />
+        <span className={product.inStock ? "home-badge" : "home-badge home-badge-muted"}>{index === 0 ? "Bán chạy" : product.inStock ? `-${salePercent}%` : "Tạm hết hàng"}</span>
+        <span className="home-product-arrow"><Icon name="arrow" /></span>
+      </Link>
+      <button
+        type="button"
+        className={`home-wishlist-btn ${isWishlisted ? "active" : ""}`}
+        onClick={handleToggleWishlist}
+        title={isWishlisted ? "Bỏ lưu yêu thích" : "Lưu vào yêu thích"}
+        aria-label={isWishlisted ? `Bỏ lưu ${product.name}` : `Lưu ${product.name} vào yêu thích`}
+      >
+        {isWishlisted ? "♥" : "♡"}
+      </button>
+    </div>
     <div className="home-product-info">
       <p>{product.category}</p>
       <Link href={`/products/${product.id}`}><h3>{product.name}</h3></Link>
-      <div className="home-rating"><span>★★★★★</span> {product.rating} <small>({product.reviewCount})</small></div>
+      <div className="home-rating"><span>★★★★★</span> {typeof product.rating === "number" ? product.rating : product.rating.average} <small>({product.reviewCount})</small></div>
       <div className="home-price">
         <strong>{formatPrice(product.price)}</strong>
         <del>{formatPrice(product.oldPrice)}</del>
         {product.inStock ? (
-          <button type="button" onClick={() => { addItem(product); onAdded(product.name); }} aria-label={`Thêm ${product.name} vào giỏ hàng`}><Icon name="bag" /></button>
+          <button type="button" onClick={handleAddToCart} aria-label={`Thêm ${product.name} vào giỏ hàng`}><Icon name="bag" /></button>
         ) : (
           <Link href={`/products/${product.id}`} className="home-sold-out-link" title="Xem chi tiết sản phẩm" aria-label={`Xem chi tiết ${product.name}`}><Icon name="arrow" /></Link>
         )}
@@ -51,14 +85,43 @@ function ProductCard({ product, index, onAdded }: { product: Product; index: num
 }
 
 export default function Home() {
+  const router = useRouter();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { itemCount } = useCart();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [toast, setToast] = useState("");
+  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
+  const [heroProduct, setHeroProduct] = useState<Product | null>(null);
 
-  const showToast = (name: string) => {
-    setToast(`${name} đã được thêm vào giỏ hàng`);
-    window.setTimeout(() => setToast(""), 2400);
-  };
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.replace("/login");
+    }
+  }, [authLoading, isAuthenticated, router]);
+
+  useEffect(() => {
+    let isMounted = true;
+    getFeaturedProducts(4).then((data) => {
+      if (isMounted) setFeaturedProducts(data);
+    });
+    getProductById("focus-task").then((p) => {
+      if (isMounted) setHeroProduct(p);
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  if (authLoading) {
+    return (
+      <div style={{ minHeight: "80vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div className="orders-loading-spinner" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null;
+  }
 
   return <div className="site-shell home-page">
     <header className="site-header"><Link className="logo" href="#top"><span className="logo-mark">e</span> ErgoChair</Link><nav className={menuOpen ? "open" : ""}><Link className="active" href="#top" onClick={() => setMenuOpen(false)}>Trang chủ</Link><Link href="#products" onClick={() => setMenuOpen(false)}>Sản phẩm</Link><Link href="#categories" onClick={() => setMenuOpen(false)}>Danh mục</Link><Link href="#about" onClick={() => setMenuOpen(false)}>Về chúng tôi</Link></nav><div className="header-actions"><button aria-label="Tìm kiếm"><Icon name="search" /></button><Link className="cart" href="/cart" aria-label="Giỏ hàng"><Icon name="bag" />{itemCount > 0 && <span key={itemCount}>{itemCount}</span>}</Link><Link className="login" href="/products">Mua sắm</Link><button className="mobile-menu" aria-label="Mở menu" onClick={() => setMenuOpen(!menuOpen)}><Icon name="menu" /></button></div></header>
@@ -78,7 +141,7 @@ export default function Home() {
           </div>
         </div>
         <div className="home-hero-visual" data-reveal="scale" data-reveal-delay="120">
-          <img src={products[0].image} alt="Ghế Ergo Pro X1 trong không gian làm việc hiện đại" />
+          <img src={heroProduct?.image ?? "/images/products/focus-task.png"} alt="Ghế Ergo Pro X1 trong không gian làm việc hiện đại" />
           <div>
             <span>01</span>
             <p>Ergo Pro X1<br /><small>Thiết kế chủ đạo</small></p>
@@ -104,8 +167,8 @@ export default function Home() {
           <Link className="text-link" href="/products">Xem tất cả sản phẩm <Icon name="arrow" /></Link>
         </div>
         <div className="home-product-grid">
-          {products.slice(0, 4).map((product, index) => (
-            <ProductCard key={product.id} product={product} index={index} onAdded={showToast} />
+          {featuredProducts.map((product, index) => (
+            <ProductCard key={product.id} product={product} index={index} />
           ))}
         </div>
       </section>
@@ -182,6 +245,9 @@ export default function Home() {
           </blockquote>
         </div>
       </section>
+
+      {/* Recently Viewed Products */}
+      <RecentlyViewedProducts limit={4} />
     </main>
     <footer className="site-footer" data-reveal="fade">
       <div className="footer-top">
@@ -220,6 +286,5 @@ export default function Home() {
         <span>Made for better living.</span>
       </div>
     </footer>
-    {toast && <div className="cart-toast" role="status">Đã thêm sản phẩm vào giỏ hàng</div>}
   </div>;
 }

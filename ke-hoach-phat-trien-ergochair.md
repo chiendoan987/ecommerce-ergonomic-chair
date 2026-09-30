@@ -444,11 +444,11 @@ Không thêm tính năng mới, chỉ tổ chức lại code theo mục 2 & 3.
 
 ### 🔌 Giai đoạn 4 — Chuẩn bị & Chuyển sang API layer nội bộ (1-2 tuần)
 > Đây là bước đệm quan trọng trước khi làm BE thật. Vẫn nằm trong phạm vi FE.
-- [ ] Chuyển toàn bộ mock data từ import trực tiếp sang đọc qua **Next.js Route Handlers** (`app/api/*`) — vẫn trả dữ liệu mock nhưng đã đi qua "API" thật sự trong cùng dự án Next.js
-- [ ] Service layer (mục 3) đổi từ đọc mock trực tiếp → gọi `fetch("/api/...")`
-- [ ] Thêm validate bằng `zod` dùng chung cho form (FE) và Route Handler (giả BE)
-- [ ] Hoàn tất **cấu hình trước** Prisma + MySQL như mục 3.1 (cài đặt, viết `schema.prisma`, `.env.example`) — vẫn **chưa** dùng thật
-- [ ] Viết `.env.example` đầy đủ, chuẩn bị biến môi trường cho `NEXT_PUBLIC_API_URL` và `DATABASE_URL` (mẫu)
+- [x] Chuyển toàn bộ mock data từ import trực tiếp sang đọc qua **Next.js Route Handlers** (`app/api/*`) — đầy đủ các endpoint CRUD sản phẩm, đơn hàng, auth, coupon, review
+- [x] Service layer (mục 3) đổi sang gọi `fetch("/api/...")` với cơ chế fallback SSR an toàn
+- [x] Thêm validate bằng `zod` dùng chung cho form (FE) và Route Handler (`src/lib/validators/*`)
+- [x] Hoàn tất **cấu hình trước** Prisma + MySQL như mục 3.1 (đã cài đặt `@prisma/client`, `prisma`, hoàn thiện `prisma/schema.prisma` đầy đủ bảng quan hệ)
+- [x] Viết `.env.example` đầy đủ với biến môi trường `DATABASE_URL` (MySQL) và `NEXT_PUBLIC_API_URL`
 
 > ⏸️ **Điểm dừng của giai đoạn FE.** Sau Giai đoạn 4, toàn bộ website chạy hoàn chỉnh bằng dữ liệu mock đi qua API nội bộ, sẵn sàng để bắt đầu Giai đoạn 5 bất cứ lúc nào mà không cần sửa lại kiến trúc.
 
