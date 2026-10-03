@@ -243,7 +243,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <div className="admin-footer-actions">
             <Link href="/" className="admin-store-link" title="Xem giao diện khách hàng">
               <AdminIcon name="store" />
-              <span>Xem Web</span>
+              <span>Cửa hàng</span>
             </Link>
             <button
               type="button"
@@ -275,9 +275,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
 
           <div className="admin-topbar-right">
-            <Link href="/" className="admin-btn admin-btn-outline admin-btn-sm" target="_blank">
+            <Link href="/" className="admin-topbar-store-btn" target="_blank" title="Mở trang chủ khách hàng trong tab mới">
               <AdminIcon name="store" />
-              <span>Xem Cửa Hàng</span>
+              <span>Xem Cửa Hàng ↗</span>
             </Link>
           </div>
         </header>

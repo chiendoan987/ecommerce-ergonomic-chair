@@ -4,7 +4,6 @@ export default function ContactPage() {
   return (
     <main className="simple-page contact-page">
       <div data-reveal="up">
-        <p className="eyebrow">ERGOCHAIR / LIÊN HỆ</p>
         <h1>Hãy bắt đầu<br /><em>một cuộc trò chuyện.</em></h1>
         <p className="simple-page-intro">Đội ngũ ErgoChair sẵn sàng giúp bạn tìm chiếc ghế phù hợp với cơ thể và không gian làm việc.</p>
       </div>

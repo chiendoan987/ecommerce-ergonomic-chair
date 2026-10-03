@@ -169,13 +169,19 @@ export default function CheckoutPage() {
 
   return (
     <main className="checkout-page">
-      <header className="checkout-hero" data-reveal="up">
-        <div>
-          <p className="eyebrow">ERGOCHAIR / ĐẶT HÀNG</p>
-          <h1>Hoàn tất<br /><em>đơn hàng.</em></h1>
-          <p>Chỉ còn vài thông tin để chiếc ghế phù hợp đến với bạn.</p>
+      <div className="checkout-top-header" data-reveal="fade">
+        <div className="catalog-breadcrumb">
+          <Link href="/">Trang chủ</Link>
+          <span>/</span>
+          <Link href="/cart">Giỏ hàng</Link>
+          <span>/</span>
+          <strong>Thanh toán</strong>
         </div>
-      </header>
+        <div className="checkout-header-title-row">
+          <h1>Thanh toán & Đặt hàng</h1>
+          <p>Vui lòng điền thông tin giao hàng để chúng tôi xử lý đơn hàng của bạn.</p>
+        </div>
+      </div>
 
       <div className="checkout-layout">
         <form className="checkout-form" onSubmit={handleSubmit} noValidate data-reveal="up" data-reveal-delay="80">

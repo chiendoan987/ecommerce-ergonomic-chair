@@ -28,10 +28,9 @@ export default function WishlistPage() {
       <main className="wishlist-main">
         <header className="wishlist-header" data-reveal="up">
           <div>
-            <p className="eyebrow">BỘ SƯU TẬP CỦA BẠN</p>
-            <h1>Sản phẩm đã lưu</h1>
+            <h1>Sản phẩm đã lưu ({items.length})</h1>
             <p className="wishlist-subtitle">
-              Lưu giữ những mẫu ghế bạn quan tâm nhất để theo dõi giá và đặt mua bất kỳ lúc nào.
+              Lưu giữ những mẫu ghế bạn quan tâm nhất để theo dõi và đặt mua thuận tiện.
             </p>
           </div>
           {items.length > 0 && (
@@ -40,7 +39,7 @@ export default function WishlistPage() {
               className="wishlist-clear-all-btn"
               onClick={clearWishlist}
             >
-              Xóa tất cả ({items.length})
+              Xóa tất cả
             </button>
           )}
         </header>

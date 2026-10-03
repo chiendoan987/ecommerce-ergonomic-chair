@@ -101,9 +101,9 @@ export default function AdminOrdersPage() {
     <div className="admin-orders-page">
       {/* Top filter bar */}
       <div className="admin-filter-bar">
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
+        <div className="admin-filter-bar-left">
           <div className="admin-search-box">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="11" cy="11" r="8" />
               <line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
@@ -229,8 +229,9 @@ export default function AdminOrdersPage() {
                       <td style={{ textAlign: "right" }}>
                         <button
                           type="button"
-                          className="admin-btn admin-btn-outline admin-btn-sm"
+                          className="admin-action-btn view"
                           onClick={() => setSelectedOrder(order)}
+                          title="Xem chi tiết đơn hàng"
                         >
                           Chi tiết
                         </button>

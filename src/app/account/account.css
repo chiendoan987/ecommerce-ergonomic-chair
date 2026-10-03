@@ -50,33 +50,33 @@
   align-items: center;
   background: #faf8f5;
   border: 1px solid #ede5d8;
-  border-radius: 16px;
-  padding: 32px 36px;
-  margin-bottom: 32px;
-  gap: 20px;
+  border-radius: 14px;
+  padding: 18px 24px;
+  margin-bottom: 24px;
+  gap: 16px;
 }
 
 @media (max-width: 768px) {
   .account-hero-header {
     flex-direction: column;
     align-items: flex-start;
-    padding: 24px;
+    padding: 18px;
   }
 }
 
 .account-user-badge-wrap {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 16px;
 }
 
 .account-avatar-large {
-  width: 64px;
-  height: 64px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
   background: linear-gradient(135deg, #8b7355 0%, #6f5c44 100%);
   color: #fff;
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 600;
   display: flex;
   align-items: center;

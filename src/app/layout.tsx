@@ -8,6 +8,8 @@ import { CartProvider } from "@/components/cart-provider";
 import { SiteHeader } from "@/components/site-header";
 import { ScrollRevealProvider } from "@/components/scroll-reveal-provider";
 import { ScrollToTop } from "@/components/scroll-to-top";
+import { FloatingContactButtons } from "@/components/floating-contact-buttons";
+import { FloatingChatbot } from "@/components/floating-chatbot";
 
 const poppins = Poppins({
   variable: "--font-poppins",
@@ -24,6 +26,7 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("http://localhost:3000"),
   title: "ErgoChair - Ghế công thái học cao cấp",
   description: "Thiết kế cho tư thế tốt hơn, làm việc thoải mái hơn mỗi ngày. Bảo hành chính hãng 5 năm.",
 };
@@ -48,6 +51,8 @@ export default function RootLayout({
                 <SiteHeader />
                 {children}
                 <ScrollToTop />
+                <FloatingContactButtons />
+                <FloatingChatbot />
               </WishlistProvider>
             </CartProvider>
           </AuthProvider>

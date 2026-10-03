@@ -254,9 +254,9 @@ export default function AdminProductsPage() {
     <div className="admin-products-page">
       {/* Top action header */}
       <div className="admin-filter-bar">
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
+        <div className="admin-filter-bar-left">
           <div className="admin-search-box">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="11" cy="11" r="8" />
               <line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
@@ -295,7 +295,7 @@ export default function AdminProductsPage() {
           className="admin-btn admin-btn-primary"
           onClick={handleOpenCreateModal}
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <line x1="12" y1="5" x2="12" y2="19" />
             <line x1="5" y1="12" x2="19" y2="12" />
           </svg>
@@ -307,7 +307,10 @@ export default function AdminProductsPage() {
       <div className="admin-card">
         <div className="admin-card-header">
           <h2 className="admin-card-title">
-            Danh Sách Sản Phẩm ({filteredProducts.length} / {products.length})
+            <span>Danh Sách Sản Phẩm</span>
+            <span style={{ fontSize: "0.82rem", fontWeight: 500, color: "#64748b" }}>
+              ({filteredProducts.length} / {products.length})
+            </span>
           </h2>
           <div style={{ display: "flex", gap: "0.5rem" }}>
             <span className="admin-badge in_stock">
@@ -324,13 +327,13 @@ export default function AdminProductsPage() {
             <table className="admin-table">
               <thead>
                 <tr>
-                  <th>Sản phẩm</th>
-                  <th>Danh mục</th>
-                  <th>Giá bán</th>
-                  <th>Giá gốc</th>
-                  <th>Tồn kho</th>
-                  <th>Trạng thái kho</th>
-                  <th style={{ textAlign: "right" }}>Thao tác</th>
+                  <th style={{ minWidth: "260px" }}>Sản phẩm</th>
+                  <th style={{ minWidth: "150px" }}>Danh mục</th>
+                  <th style={{ minWidth: "130px" }}>Giá bán</th>
+                  <th style={{ minWidth: "110px" }}>Giá gốc</th>
+                  <th style={{ minWidth: "100px" }}>Tồn kho</th>
+                  <th style={{ minWidth: "120px" }}>Trạng thái kho</th>
+                  <th style={{ minWidth: "160px", textAlign: "right" }}>Thao tác</th>
                 </tr>
               </thead>
               <tbody>
@@ -350,40 +353,35 @@ export default function AdminProductsPage() {
                   filteredProducts.map((p) => (
                     <tr key={p.id}>
                       <td>
-                        <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
+                        <div className="admin-product-cell">
                           <img
                             src={p.image}
                             alt={p.name}
-                            style={{
-                              width: "48px",
-                              height: "48px",
-                              borderRadius: "8px",
-                              objectFit: "cover",
-                              background: "#f8fafc",
-                              border: "1px solid #e2e8f0",
-                            }}
+                            className="admin-product-thumb"
                           />
-                          <div>
-                            <div style={{ fontWeight: 600, color: "#0f172a" }}>{p.name}</div>
-                            <div style={{ fontSize: "0.75rem", color: "#64748b" }}>
-                              ID: {p.id} • Slug: /{p.slug}
-                            </div>
+                          <div className="admin-product-meta">
+                            <div className="admin-product-name">{p.name}</div>
+                            <div className="admin-product-sku">Mã: {p.id}</div>
                           </div>
                         </div>
                       </td>
                       <td>
-                        <span style={{ fontSize: "0.8rem", padding: "0.2rem 0.5rem", background: "#f1f5f9", borderRadius: "4px" }}>
+                        <span className="admin-category-badge">
                           {p.category}
                         </span>
                       </td>
-                      <td style={{ fontWeight: 600, color: "#0284c7" }}>
-                        {formatPrice(p.price)}
-                      </td>
-                      <td style={{ color: "#94a3b8", textDecoration: "line-through", fontSize: "0.8rem" }}>
-                        {p.oldPrice ? formatPrice(p.oldPrice) : "—"}
+                      <td>
+                        <span className="admin-price-main">
+                          {formatPrice(p.price)}
+                        </span>
                       </td>
                       <td>
-                        <span style={{ fontWeight: 600 }}>{p.stockQuantity}</span> chiếc
+                        <span className="admin-price-old">
+                          {p.oldPrice ? formatPrice(p.oldPrice) : "—"}
+                        </span>
+                      </td>
+                      <td>
+                        <span className="admin-stock-qty">{p.stockQuantity}</span> chiếc
                       </td>
                       <td>
                         <button
@@ -391,25 +389,25 @@ export default function AdminProductsPage() {
                           onClick={() => handleToggleStock(p.id, p.name)}
                           className={`admin-badge ${p.inStock ? "in_stock" : "out_of_stock"}`}
                           style={{ cursor: "pointer", border: "none" }}
-                          title="Click để đổi nhanh trạng thái kho"
+                          title="Bấm để đổi nhanh trạng thái kho"
                         >
                           <span className="admin-badge-dot" />
                           {p.inStock ? "Còn hàng" : "Tạm hết"}
                         </button>
                       </td>
                       <td style={{ textAlign: "right" }}>
-                        <div style={{ display: "inline-flex", gap: "0.4rem" }}>
+                        <div style={{ display: "inline-flex", gap: "0.4rem", justifyContent: "flex-end" }}>
                           <Link
                             href={`/products/${p.id}`}
                             target="_blank"
-                            className="admin-btn admin-btn-outline admin-btn-sm"
+                            className="admin-action-btn view"
                             title="Xem trang sản phẩm ngoài website"
                           >
                             Xem
                           </Link>
                           <button
                             type="button"
-                            className="admin-btn admin-btn-outline admin-btn-sm"
+                            className="admin-action-btn edit"
                             onClick={() => handleOpenEditModal(p)}
                             title="Chỉnh sửa sản phẩm"
                           >
@@ -417,7 +415,7 @@ export default function AdminProductsPage() {
                           </button>
                           <button
                             type="button"
-                            className="admin-btn admin-btn-danger admin-btn-sm"
+                            className="admin-action-btn delete"
                             onClick={() => handleDeleteProduct(p.id, p.name)}
                             disabled={deletingProductId === p.id}
                             title="Xóa sản phẩm"
@@ -453,7 +451,7 @@ export default function AdminProductsPage() {
               </button>
             </div>
 
-            <form onSubmit={handleSaveProduct}>
+            <form onSubmit={handleSaveProduct} className="admin-modal-form">
               <div className="admin-modal-body">
                 <div className="admin-form-grid">
                   {/* Tên sản phẩm */}

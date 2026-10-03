@@ -4,7 +4,6 @@ export default function AboutPage() {
   return (
     <main className="simple-page">
       <div data-reveal="up">
-        <p className="eyebrow">ERGOCHAIR / VỀ CHÚNG TÔI</p>
         <h1>Thiết kế để bạn<br /><em>ngồi tốt hơn.</em></h1>
         <p className="simple-page-intro">Chúng tôi tạo ra những chiếc ghế công thái học cân bằng giữa nâng đỡ, thẩm mỹ và cảm giác thoải mái trong từng ngày làm việc.</p>
       </div>
