@@ -47,21 +47,14 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectUrl = searchParams.get("redirect") || "/";
+  const registerHref = redirectUrl !== "/" ? `/register?redirect=${encodeURIComponent(redirectUrl)}` : "/register";
 
-  const { user, isAuthenticated, login, register, logout } = useAuth();
-  const [mode, setMode] = useState<"login" | "register">("login");
+  const { user, isAuthenticated, login, logout } = useAuth();
 
   // Login form state
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [showLoginPassword, setShowLoginPassword] = useState(false);
-
-  // Register form state
-  const [regFullName, setRegFullName] = useState("");
-  const [regEmail, setRegEmail] = useState("");
-  const [regPhone, setRegPhone] = useState("");
-  const [regPassword, setRegPassword] = useState("");
-  const [showRegPassword, setShowRegPassword] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -93,36 +86,6 @@ function LoginForm() {
       router.push(redirectUrl);
     } else {
       setErrorMsg(result.error || "Đăng nhập không thành công.");
-    }
-  };
-
-  const handleRegisterSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMsg("");
-
-    if (!regFullName.trim() || !regEmail.trim() || !regPhone.trim()) {
-      setErrorMsg("Vui lòng điền đầy đủ các thông tin bắt buộc.");
-      return;
-    }
-
-    if (!regPassword.trim() || regPassword.length < 6) {
-      setErrorMsg("Mật khẩu phải có độ dài tối thiểu 6 ký tự.");
-      return;
-    }
-
-    setIsLoading(true);
-    const result = await register({
-      fullName: regFullName.trim(),
-      email: regEmail.trim(),
-      phone: regPhone.trim(),
-      password: regPassword.trim(),
-    });
-    setIsLoading(false);
-
-    if (result.success) {
-      router.push(redirectUrl);
-    } else {
-      setErrorMsg(result.error || "Đăng ký không thành công.");
     }
   };
 
@@ -162,36 +125,30 @@ function LoginForm() {
           <div className="auth-brand-badge">
             <span>✧</span> ErgoChair Atelier <span>✧</span>
           </div>
-          <h1 className="auth-card-title">
-            {mode === "login" ? "Đăng nhập hệ thống" : "Tạo tài khoản mới"}
-          </h1>
+          <h1 className="auth-card-title">Đăng nhập hệ thống</h1>
           <p className="auth-card-subtitle">
-            {mode === "login"
-              ? "Trải nghiệm không gian mua sắm nội thất công thái học cao cấp"
-              : "Đăng ký thành viên để lưu sổ địa chỉ & theo dõi trạng thái đơn hàng"}
+            Trải nghiệm không gian mua sắm nội thất công thái học cao cấp
           </p>
         </div>
 
         {/* Tab Switcher */}
         <div className="auth-tabs" role="tablist">
-          <button
-            type="button"
+          <Link
+            href="/login"
             role="tab"
-            aria-selected={mode === "login"}
-            className={`auth-tab-btn ${mode === "login" ? "active" : ""}`}
-            onClick={() => { setMode("login"); setErrorMsg(""); }}
+            aria-selected={true}
+            className="auth-tab-btn active"
           >
             Đăng nhập
-          </button>
-          <button
-            type="button"
+          </Link>
+          <Link
+            href={registerHref}
             role="tab"
-            aria-selected={mode === "register"}
-            className={`auth-tab-btn ${mode === "register" ? "active" : ""}`}
-            onClick={() => { setMode("register"); setErrorMsg(""); }}
+            aria-selected={false}
+            className="auth-tab-btn"
           >
             Đăng ký tài khoản
-          </button>
+          </Link>
         </div>
 
         {/* Error Alert */}
@@ -204,211 +161,116 @@ function LoginForm() {
           </div>
         )}
 
-        {mode === "login" ? (
-          <form className="auth-form" onSubmit={handleLoginSubmit}>
-            <div className="auth-form-field">
-              <label htmlFor="login-email">Địa chỉ Email</label>
-              <div className="auth-input-wrapper">
-                <input
-                  id="login-email"
-                  type="email"
-                  placeholder="name@example.com"
-                  value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
-                  required
-                  autoComplete="email"
-                />
-              </div>
+        <form className="auth-form" onSubmit={handleLoginSubmit}>
+          <div className="auth-form-field">
+            <label htmlFor="login-email">Địa chỉ Email</label>
+            <div className="auth-input-wrapper">
+              <input
+                id="login-email"
+                type="email"
+                placeholder="name@example.com"
+                value={loginEmail}
+                onChange={(e) => setLoginEmail(e.target.value)}
+                required
+                autoComplete="email"
+              />
             </div>
+          </div>
 
-            <div className="auth-form-field">
-              <label htmlFor="login-password">
-                <span>Mật khẩu</span>
-                <span className="auth-mock-hint">(Mật khẩu mặc định: 123456)</span>
-              </label>
-              <div className="auth-input-wrapper">
-                <input
-                  id="login-password"
-                  type={showLoginPassword ? "text" : "password"}
-                  placeholder="Nhập mật khẩu của bạn"
-                  value={loginPassword}
-                  onChange={(e) => setLoginPassword(e.target.value)}
-                  required
-                  autoComplete="current-password"
-                  className="auth-password-input"
-                />
-                <button
-                  type="button"
-                  className="auth-password-toggle-btn"
-                  onClick={() => setShowLoginPassword((prev) => !prev)}
-                  title={showLoginPassword ? "Ẩn mật khẩu" : "Hiển thị mật khẩu"}
-                  aria-label={showLoginPassword ? "Ẩn mật khẩu" : "Hiển thị mật khẩu"}
-                >
-                  <EyeIcon show={showLoginPassword} />
-                </button>
+          <div className="auth-form-field">
+            <label htmlFor="login-password">
+              <span>Mật khẩu</span>
+              <span className="auth-mock-hint">(Mật khẩu mặc định: 123456)</span>
+            </label>
+            <div className="auth-input-wrapper">
+              <input
+                id="login-password"
+                type={showLoginPassword ? "text" : "password"}
+                placeholder="Nhập mật khẩu của bạn"
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+                className="auth-password-input"
+              />
+              <button
+                type="button"
+                className="auth-password-toggle-btn"
+                onClick={() => setShowLoginPassword((prev) => !prev)}
+                title={showLoginPassword ? "Ẩn mật khẩu" : "Hiển thị mật khẩu"}
+                aria-label={showLoginPassword ? "Ẩn mật khẩu" : "Hiển thị mật khẩu"}
+              >
+                <EyeIcon show={showLoginPassword} />
+              </button>
+            </div>
+            {loginPassword.length > 0 && (
+              <div className="auth-char-counter">
+                Đã nhập {loginPassword.length} ký tự
               </div>
-              {loginPassword.length > 0 && (
-                <div className="auth-char-counter">
-                  Đã nhập {loginPassword.length} ký tự
+            )}
+          </div>
+
+          <div className="auth-form-meta">
+            <label className="auth-remember-label">
+              <input type="checkbox" defaultChecked />
+              <span>Ghi nhớ đăng nhập</span>
+            </label>
+          </div>
+
+          <button
+            type="submit"
+            className="auth-submit-btn"
+            disabled={isLoading}
+          >
+            {isLoading ? "Đang xử lý đăng nhập..." : "Đăng nhập ngay"} <span>→</span>
+          </button>
+
+          {/* Quick Demo Accounts Box */}
+          <div className="demo-accounts-box">
+            <div className="demo-accounts-title">
+              <span>Đăng nhập nhanh 1-chạm (Dữ liệu thử nghiệm):</span>
+            </div>
+            <div className="demo-buttons">
+              <button
+                type="button"
+                className={`demo-btn ${loginEmail === "quan.tran@example.com" ? "active" : ""}`}
+                onClick={() => handleQuickLogin("quan.tran@example.com")}
+              >
+                <div className="demo-btn-role">
+                  <span>Khách hàng</span>
+                  <span className="demo-btn-badge">VIP</span>
                 </div>
-              )}
-            </div>
-
-            <div className="auth-form-meta">
-              <label className="auth-remember-label">
-                <input type="checkbox" defaultChecked />
-                <span>Ghi nhớ đăng nhập</span>
-              </label>
-            </div>
-
-            <button
-              type="submit"
-              className="auth-submit-btn"
-              disabled={isLoading}
-            >
-              {isLoading ? "Đang xử lý đăng nhập..." : "Đăng nhập ngay"} <span>→</span>
-            </button>
-
-            {/* Quick Demo Accounts Box */}
-            <div className="demo-accounts-box">
-              <div className="demo-accounts-title">
-                <span>Đăng nhập nhanh 1-chạm (Dữ liệu thử nghiệm):</span>
-              </div>
-              <div className="demo-buttons">
-                <button
-                  type="button"
-                  className={`demo-btn ${loginEmail === "quan.tran@example.com" ? "active" : ""}`}
-                  onClick={() => handleQuickLogin("quan.tran@example.com")}
-                >
-                  <div className="demo-btn-role">
-                    <span>Khách hàng</span>
-                    <span className="demo-btn-badge">VIP</span>
-                  </div>
-                  <small>quan.tran@example.com</small>
-                </button>
-                <button
-                  type="button"
-                  className={`demo-btn ${loginEmail === "admin@ergochair.vn" ? "active" : ""}`}
-                  onClick={() => handleQuickLogin("admin@ergochair.vn")}
-                >
-                  <div className="demo-btn-role">
-                    <span>Quản trị viên</span>
-                    <span className="demo-btn-badge admin">ADMIN</span>
-                  </div>
-                  <small>admin@ergochair.vn</small>
-                </button>
-              </div>
-            </div>
-
-            {/* Guest browsing link */}
-            <div className="auth-guest-link-wrapper">
-              <Link href="/products" className="auth-guest-link">
-                Duyệt xem danh mục sản phẩm (Khách vãng lai) <span>→</span>
-              </Link>
-            </div>
-          </form>
-        ) : (
-          <form className="auth-form" onSubmit={handleRegisterSubmit}>
-            <div className="auth-form-field">
-              <label htmlFor="reg-fullname">Họ và tên *</label>
-              <div className="auth-input-wrapper">
-                <input
-                  id="reg-fullname"
-                  type="text"
-                  placeholder="Ví dụ: Nguyễn Văn A"
-                  value={regFullName}
-                  onChange={(e) => setRegFullName(e.target.value)}
-                  required
-                  autoComplete="name"
-                />
-              </div>
-            </div>
-
-            <div className="auth-form-field">
-              <label htmlFor="reg-email">Địa chỉ Email *</label>
-              <div className="auth-input-wrapper">
-                <input
-                  id="reg-email"
-                  type="email"
-                  placeholder="name@example.com"
-                  value={regEmail}
-                  onChange={(e) => setRegEmail(e.target.value)}
-                  required
-                  autoComplete="email"
-                />
-              </div>
-            </div>
-
-            <div className="auth-form-field">
-              <label htmlFor="reg-phone">Số điện thoại *</label>
-              <div className="auth-input-wrapper">
-                <input
-                  id="reg-phone"
-                  type="tel"
-                  placeholder="0912 345 678"
-                  value={regPhone}
-                  onChange={(e) => setRegPhone(e.target.value)}
-                  required
-                  autoComplete="tel"
-                />
-              </div>
-            </div>
-
-            <div className="auth-form-field">
-              <label htmlFor="reg-password">
-                <span>Mật khẩu *</span>
-                <span className="auth-mock-hint">(Tối thiểu 6 ký tự)</span>
-              </label>
-              <div className="auth-input-wrapper">
-                <input
-                  id="reg-password"
-                  type={showRegPassword ? "text" : "password"}
-                  placeholder="Tạo mật khẩu an toàn"
-                  value={regPassword}
-                  onChange={(e) => setRegPassword(e.target.value)}
-                  required
-                  minLength={6}
-                  autoComplete="new-password"
-                  className="auth-password-input"
-                />
-                <button
-                  type="button"
-                  className="auth-password-toggle-btn"
-                  onClick={() => setShowRegPassword((prev) => !prev)}
-                  title={showRegPassword ? "Ẩn mật khẩu" : "Hiển thị mật khẩu"}
-                  aria-label={showRegPassword ? "Ẩn mật khẩu" : "Hiển thị mật khẩu"}
-                >
-                  <EyeIcon show={showRegPassword} />
-                </button>
-              </div>
-              {regPassword.length > 0 && (
-                <div
-                  className={`auth-char-counter ${
-                    regPassword.length >= 6 ? "valid" : "warning"
-                  }`}
-                >
-                  {regPassword.length >= 6
-                    ? `✓ Đã đạt ${regPassword.length}/6 ký tự tối thiểu`
-                    : `Đã nhập ${regPassword.length}/6 ký tự (cần thêm ${6 - regPassword.length} ký tự)`}
+                <small>quan.tran@example.com</small>
+              </button>
+              <button
+                type="button"
+                className={`demo-btn ${loginEmail === "admin@ergochair.vn" ? "active" : ""}`}
+                onClick={() => handleQuickLogin("admin@ergochair.vn")}
+              >
+                <div className="demo-btn-role">
+                  <span>Quản trị viên</span>
+                  <span className="demo-btn-badge admin">ADMIN</span>
                 </div>
-              )}
+                <small>admin@ergochair.vn</small>
+              </button>
             </div>
+          </div>
 
-            <button
-              type="submit"
-              className="auth-submit-btn"
-              disabled={isLoading}
-            >
-              {isLoading ? "Đang khởi tạo tài khoản..." : "Hoàn tất đăng ký"} <span>→</span>
-            </button>
+          {/* Switch link to Register */}
+          <div className="auth-switch-box">
+            Chưa có tài khoản?
+            <Link href={registerHref} className="auth-switch-link">
+              Đăng ký tài khoản mới ngay →
+            </Link>
+          </div>
 
-            <div className="auth-guest-link-wrapper">
-              <Link href="/products" className="auth-guest-link">
-                Duyệt xem danh mục sản phẩm (Khách vãng lai) <span>→</span>
-              </Link>
-            </div>
-          </form>
-        )}
+          {/* Guest browsing link */}
+          <div className="auth-guest-link-wrapper">
+            <Link href="/products" className="auth-guest-link">
+              Duyệt xem danh mục sản phẩm (Khách vãng lai) <span>→</span>
+            </Link>
+          </div>
+        </form>
       </div>
     </div>
   );
@@ -420,11 +282,11 @@ export default function LoginPage() {
       <nav className="auth-breadcrumb" aria-label="Breadcrumb">
         <Link href="/">Trang chủ</Link>
         <span className="auth-breadcrumb-sep">/</span>
-        <strong>Tài khoản & Xác thực</strong>
+        <strong>Đăng nhập</strong>
       </nav>
 
       <main className="auth-main">
-        <Suspense fallback={<div className="auth-loading">Đang tải biểu mẫu xác thực...</div>}>
+        <Suspense fallback={<div className="auth-loading">Đang tải biểu mẫu đăng nhập...</div>}>
           <LoginForm />
         </Suspense>
       </main>

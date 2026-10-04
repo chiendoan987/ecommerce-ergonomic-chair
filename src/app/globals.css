@@ -771,6 +771,18 @@ blockquote footer small { color: var(--muted); display: block; font-size: 9px; f
   box-shadow: 0 3px 8px rgba(142, 101, 69, 0.2);
 }
 
+.header-auth-link.active {
+  color: #8e6545;
+  font-weight: 600;
+}
+
+.header-register-btn.active {
+  background: #8e6545;
+  color: #ffffff;
+  border-color: #8e6545;
+  box-shadow: 0 3px 8px rgba(142, 101, 69, 0.25);
+}
+
 /* Authenticated Account Pill */
 .header-account-action.is-logged-in {
   background: #faf7f2;

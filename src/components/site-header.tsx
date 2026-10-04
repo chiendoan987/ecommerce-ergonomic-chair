@@ -223,10 +223,18 @@ export function SiteHeader() {
                 </Link>
               ) : (
                 <div className="mobile-auth-links">
-                  <Link className="nav-item-link" href="/login" onClick={closeMenus}>
+                  <Link
+                    className={`nav-item-link ${isActive("/login") ? "active" : ""}`}
+                    href="/login"
+                    onClick={closeMenus}
+                  >
                     Đăng nhập
                   </Link>
-                  <Link className="nav-item-link" href="/register" onClick={closeMenus}>
+                  <Link
+                    className={`nav-item-link ${isActive("/register") ? "active" : ""}`}
+                    href="/register"
+                    onClick={closeMenus}
+                  >
                     Đăng ký tài khoản
                   </Link>
                 </div>
@@ -245,7 +253,7 @@ export function SiteHeader() {
           {!isAuthenticated ? (
             <div className="header-auth-buttons">
               <Link
-                className="header-auth-link header-login-link"
+                className={`header-auth-link header-login-link ${isActive("/login") ? "active" : ""}`}
                 href="/login"
                 aria-label="Đăng nhập"
               >
@@ -254,7 +262,7 @@ export function SiteHeader() {
               </Link>
               <span className="auth-separator" aria-hidden="true">/</span>
               <Link
-                className="header-auth-btn header-register-btn"
+                className={`header-auth-btn header-register-btn ${isActive("/register") ? "active" : ""}`}
                 href="/register"
                 aria-label="Đăng ký tài khoản"
               >
