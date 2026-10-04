@@ -1,6 +1,7 @@
 import type { Address } from "./order";
 
 export type UserRole = "customer" | "admin" | "staff";
+export type UserStatus = "active" | "blocked";
 
 export interface User {
   id: string;
@@ -8,6 +9,7 @@ export interface User {
   email: string;
   phone: string;
   role: UserRole;
+  status?: UserStatus;
   password?: string;
   avatar?: string;
   addresses: Address[];
@@ -36,6 +38,7 @@ export interface UpdateProfileData {
   fullName?: string;
   phone?: string;
   avatar?: string;
+  email?: string;
 }
 
 export interface AuthContextValue {
@@ -46,6 +49,7 @@ export interface AuthContextValue {
   register: (data: RegisterData) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   updateProfile: (data: UpdateProfileData) => Promise<{ success: boolean; error?: string }>;
+  changePassword?: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
   addAddress: (address: Omit<Address, "id">) => Promise<Address>;
   updateAddress: (addressId: string, address: Partial<Address>) => Promise<Address | null>;
   deleteAddress: (addressId: string) => Promise<boolean>;

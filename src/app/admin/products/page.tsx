@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import {
   getProducts,
   createProduct,
@@ -15,16 +15,58 @@ import type { Product } from "@/lib/types/product";
 import { formatPrice } from "@/lib/utils/format";
 import { useToast } from "@/hooks/use-toast";
 
-const IMAGE_PRESETS = [
-  "/images/products/focus-task.png",
-  "/images/products/cloud-mesh-air.png",
-  "/images/products/ergo-pro-x1.png",
-  "/images/products/executive-oak.png",
-  "/images/products/lounge-heritage.png",
-  "/images/products/motion-lite.png",
-  "/images/products/play-seat-pro.png",
-  "/images/products/aero-support.png",
-];
+// Hàm hỗ trợ nén và tối ưu hóa ảnh tải lên từ thiết bị
+const compressImageFile = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    if (!file.type.startsWith("image/")) {
+      reject(new Error("Vui lòng chọn tệp hình ảnh hợp lệ (PNG, JPG, WEBP, GIF)."));
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Lỗi khi đọc file ảnh từ thiết bị."));
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("Không thể xử lý hình ảnh này."));
+      img.onload = () => {
+        try {
+          const canvas = document.createElement("canvas");
+          const MAX_DIMENSION = 1200;
+          let { width, height } = img;
+
+          if (width > height) {
+            if (width > MAX_DIMENSION) {
+              height = Math.round((height * MAX_DIMENSION) / width);
+              width = MAX_DIMENSION;
+            }
+          } else {
+            if (height > MAX_DIMENSION) {
+              width = Math.round((width * MAX_DIMENSION) / height);
+              height = MAX_DIMENSION;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            resolve(e.target?.result as string);
+            return;
+          }
+
+          ctx.drawImage(img, 0, 0, width, height);
+          const outputFormat = file.type === "image/png" ? "image/png" : "image/jpeg";
+          const dataUrl = canvas.toDataURL(outputFormat, 0.85);
+          resolve(dataUrl);
+        } catch {
+          resolve(e.target?.result as string);
+        }
+      };
+      img.src = e.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+};
 
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -38,6 +80,12 @@ export default function AdminProductsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
+
+  // File Upload State
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploadFileName, setUploadFileName] = useState("");
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
 
   // Form State
   const [formData, setFormData] = useState<{
@@ -61,7 +109,7 @@ export default function AdminProductsPage() {
     oldPrice: 6500000,
     stockQuantity: 20,
     description: "",
-    image: IMAGE_PRESETS[0],
+    image: "",
     material: "Lưới cao cấp & khung hợp kim",
     color: "Đen tiêu chuẩn",
     size: "65 × 65 × 115–125 cm",
@@ -125,6 +173,7 @@ export default function AdminProductsPage() {
 
   const handleOpenCreateModal = () => {
     setEditingProduct(null);
+    setUploadFileName("");
     setFormData({
       name: "",
       category: "Ghế công thái học",
@@ -132,7 +181,7 @@ export default function AdminProductsPage() {
       oldPrice: 6500000,
       stockQuantity: 20,
       description: "",
-      image: IMAGE_PRESETS[0],
+      image: "",
       material: "Lưới cao cấp & khung hợp kim",
       color: "Đen tiêu chuẩn",
       size: "65 × 65 × 115–125 cm",
@@ -145,6 +194,7 @@ export default function AdminProductsPage() {
 
   const handleOpenEditModal = (product: Product) => {
     setEditingProduct(product);
+    setUploadFileName(product.name ? `Ảnh hiện tại: ${product.name}` : "Ảnh sản phẩm");
     setFormData({
       name: product.name,
       category: product.category,
@@ -163,6 +213,57 @@ export default function AdminProductsPage() {
     setIsModalOpen(true);
   };
 
+  const handleFileProcess = async (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Vui lòng chọn tệp hình ảnh hợp lệ (PNG, JPG, WEBP, GIF).");
+      return;
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      toast.error("Kích thước tệp quá lớn (tối đa 20MB).");
+      return;
+    }
+
+    setIsProcessingImage(true);
+    try {
+      const dataUrl = await compressImageFile(file);
+      setFormData((prev) => ({ ...prev, image: dataUrl }));
+      setUploadFileName(file.name);
+      toast.success(`Đã chọn ảnh "${file.name}" thành công!`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Không thể xử lý hình ảnh.";
+      toast.error(message);
+    } finally {
+      setIsProcessingImage(false);
+    }
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleFileProcess(file);
+    }
+    e.target.value = "";
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      handleFileProcess(file);
+    }
+  };
+
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim()) {
@@ -171,6 +272,10 @@ export default function AdminProductsPage() {
     }
     if (formData.price <= 0) {
       toast.error("Giá bán phải lớn hơn 0đ.");
+      return;
+    }
+    if (!formData.image || !formData.image.trim()) {
+      toast.error("Vui lòng chọn hoặc tải lên ảnh sản phẩm từ thiết bị của bạn.");
       return;
     }
 
@@ -252,6 +357,14 @@ export default function AdminProductsPage() {
 
   return (
     <div className="admin-products-page">
+      {/* Page Greeting Header */}
+      <div className="admin-greeting-header">
+        <h1 className="admin-greeting-title">Sản phẩm</h1>
+        <p className="admin-greeting-subtitle">
+          Quản lý danh mục, số lượng tồn kho, giá bán và thông tin sản phẩm.
+        </p>
+      </div>
+
       {/* Top action header */}
       <div className="admin-filter-bar">
         <div className="admin-filter-bar-left">
@@ -327,25 +440,25 @@ export default function AdminProductsPage() {
             <table className="admin-table">
               <thead>
                 <tr>
-                  <th style={{ minWidth: "260px" }}>Sản phẩm</th>
-                  <th style={{ minWidth: "150px" }}>Danh mục</th>
-                  <th style={{ minWidth: "130px" }}>Giá bán</th>
-                  <th style={{ minWidth: "110px" }}>Giá gốc</th>
-                  <th style={{ minWidth: "100px" }}>Tồn kho</th>
-                  <th style={{ minWidth: "120px" }}>Trạng thái kho</th>
-                  <th style={{ minWidth: "160px", textAlign: "right" }}>Thao tác</th>
+                  <th style={{ minWidth: "220px" }}>Sản phẩm</th>
+                  <th style={{ minWidth: "120px" }}>Danh mục</th>
+                  <th style={{ minWidth: "105px" }}>Giá bán</th>
+                  <th style={{ minWidth: "90px" }}>Giá gốc</th>
+                  <th style={{ minWidth: "80px" }}>Tồn kho</th>
+                  <th style={{ minWidth: "105px" }}>Trạng thái kho</th>
+                  <th style={{ minWidth: "130px", textAlign: "right" }}>Thao tác</th>
                 </tr>
               </thead>
               <tbody>
                 {isLoading ? (
                   <tr>
-                    <td colSpan={7} style={{ textAlign: "center", padding: "3rem", color: "#64748b" }}>
+                    <td colSpan={7} style={{ textAlign: "center", padding: "1.75rem", color: "#64748b" }}>
                       Đang tải danh sách sản phẩm...
                     </td>
                   </tr>
                 ) : filteredProducts.length === 0 ? (
                   <tr>
-                    <td colSpan={7} style={{ textAlign: "center", padding: "3rem", color: "#64748b" }}>
+                    <td colSpan={7} style={{ textAlign: "center", padding: "1.75rem", color: "#64748b" }}>
                       Không tìm thấy sản phẩm nào phù hợp bộ lọc.
                     </td>
                   </tr>
@@ -361,7 +474,15 @@ export default function AdminProductsPage() {
                           />
                           <div className="admin-product-meta">
                             <div className="admin-product-name">{p.name}</div>
-                            <div className="admin-product-sku">Mã: {p.id}</div>
+                            <div className="admin-product-sku" style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                              <span>Mã: {p.id}</span>
+                              {p.rating ? (
+                                <span style={{ color: "#d97706", display: "inline-flex", alignItems: "center", gap: "2px" }}>
+                                  ★ {typeof p.rating === "number" ? p.rating.toFixed(1) : p.rating.average.toFixed(1)}
+                                  <span style={{ color: "#94a3b8" }}>({p.reviewCount || 0})</span>
+                                </span>
+                              ) : null}
+                            </div>
                           </div>
                         </div>
                       </td>
@@ -521,32 +642,125 @@ export default function AdminProductsPage() {
                     />
                   </div>
 
-                  {/* Chọn ảnh đại diện có sẵn */}
+                  {/* Tải ảnh từ thiết bị */}
                   <div className="admin-form-group admin-form-full">
-                    <label className="admin-form-label">Chọn ảnh đại diện mẫu</label>
-                    <div className="admin-image-presets">
-                      {IMAGE_PRESETS.map((img) => (
-                        <div
-                          key={img}
-                          className={`admin-image-thumb ${formData.image === img ? "selected" : ""}`}
-                          onClick={() => setFormData({ ...formData, image: img })}
-                          title={img}
-                        >
-                          <img src={img} alt="preset" />
+                    <label className="admin-form-label">
+                      Hình ảnh sản phẩm *{" "}
+                      <span style={{ color: "#78716C", fontWeight: "normal", fontSize: "0.85rem" }}>
+                        (Chọn tệp ảnh từ máy tính hoặc điện thoại của bạn)
+                      </span>
+                    </label>
+
+                    {/* Hidden Native File Input */}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      style={{ display: "none" }}
+                      onChange={handleFileInputChange}
+                    />
+
+                    {formData.image ? (
+                      <div className="admin-upload-preview-box">
+                        <img
+                          src={formData.image}
+                          alt="Ảnh sản phẩm đã chọn"
+                          className="admin-upload-preview-img"
+                        />
+                        <div className="admin-upload-preview-info">
+                          <div className="admin-upload-file-name">
+                            {uploadFileName || "Ảnh sản phẩm đã tải lên"}
+                          </div>
+                          <div className="admin-upload-file-status">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                            Đã tải ảnh thành công - Sẵn sàng lưu
+                          </div>
+                          <div className="admin-upload-preview-actions">
+                            <button
+                              type="button"
+                              className="admin-upload-change-btn"
+                              onClick={() => fileInputRef.current?.click()}
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                <polyline points="17 8 12 3 7 8" />
+                                <line x1="12" y1="3" x2="12" y2="15" />
+                              </svg>
+                              Đổi ảnh từ thiết bị
+                            </button>
+                            <button
+                              type="button"
+                              className="admin-upload-remove-btn"
+                              onClick={() => {
+                                setFormData((prev) => ({ ...prev, image: "" }));
+                                setUploadFileName("");
+                              }}
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <line x1="18" y1="6" x2="6" y2="18" />
+                                <line x1="6" y1="6" x2="18" y2="18" />
+                              </svg>
+                              Xóa ảnh
+                            </button>
+                          </div>
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    ) : (
+                      <div
+                        className={`admin-upload-zone ${isDragging ? "dragover" : ""}`}
+                        onDragOver={handleDragOver}
+                        onDragLeave={handleDragLeave}
+                        onDrop={handleDrop}
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <div className="admin-upload-icon-circle">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="17 8 12 3 7 8" />
+                            <line x1="12" y1="3" x2="12" y2="15" />
+                          </svg>
+                        </div>
+                        <p className="admin-upload-main-text">
+                          {isProcessingImage
+                            ? "Đang xử lý và nén hình ảnh..."
+                            : "Kéo thả ảnh vào đây hoặc nhấp để chọn ảnh từ thiết bị"}
+                        </p>
+                        <p className="admin-upload-sub-text">
+                          Hỗ trợ định dạng PNG, JPG, JPEG, WEBP, GIF (Tự động nén mượt mà)
+                        </p>
+                        <button
+                          type="button"
+                          className="admin-upload-select-btn"
+                          disabled={isProcessingImage}
+                        >
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                            <circle cx="8.5" cy="8.5" r="1.5" />
+                            <polyline points="21 15 16 10 5 21" />
+                          </svg>
+                          Chọn ảnh từ thiết bị
+                        </button>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Hoặc nhập URL ảnh */}
+                  {/* Hoặc liên kết ảnh URL nếu có */}
                   <div className="admin-form-group admin-form-full">
-                    <label className="admin-form-label">Hoặc nhập URL ảnh tùy chỉnh</label>
+                    <label className="admin-form-label">
+                      Hoặc dán liên kết URL ảnh (tùy chọn)
+                    </label>
                     <input
                       type="text"
                       className="admin-input"
-                      placeholder="/images/products/focus-task.png hoặc https://..."
-                      value={formData.image}
-                      onChange={(e) => setFormData({ ...formData, image: e.target.value })}
+                      placeholder="https://... hoặc /images/products/..."
+                      value={formData.image.startsWith("data:") ? "" : formData.image}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setFormData((prev) => ({ ...prev, image: val }));
+                        setUploadFileName(val ? "Ảnh từ đường dẫn URL" : "");
+                      }}
                     />
                   </div>
 
@@ -584,12 +798,24 @@ export default function AdminProductsPage() {
                   </div>
 
                   <div className="admin-form-group">
-                    <label className="admin-form-label">Bảo hành</label>
+                    <label className="admin-form-label">Kích thước</label>
                     <input
                       type="text"
                       className="admin-input"
-                      value={formData.warranty}
-                      onChange={(e) => setFormData({ ...formData, warranty: e.target.value })}
+                      placeholder="VD: 65 × 65 × 115–125 cm"
+                      value={formData.size}
+                      onChange={(e) => setFormData({ ...formData, size: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="admin-form-group">
+                    <label className="admin-form-label">Trọng lượng</label>
+                    <input
+                      type="text"
+                      className="admin-input"
+                      placeholder="VD: 18 kg"
+                      value={formData.weight}
+                      onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
                     />
                   </div>
 
@@ -600,6 +826,16 @@ export default function AdminProductsPage() {
                       className="admin-input"
                       value={formData.capacity}
                       onChange={(e) => setFormData({ ...formData, capacity: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="admin-form-group">
+                    <label className="admin-form-label">Bảo hành</label>
+                    <input
+                      type="text"
+                      className="admin-input"
+                      value={formData.warranty}
+                      onChange={(e) => setFormData({ ...formData, warranty: e.target.value })}
                     />
                   </div>
                 </div>

@@ -15,9 +15,15 @@ export const CATEGORIES = [
 ] as const;
 
 const PRODUCTS_STORAGE_KEY = "ergochair-products";
+let inMemoryProducts: Product[] | null = null;
 
 export function getStoredProducts(): Product[] {
-  if (typeof window === "undefined") return [...mockProducts];
+  if (typeof window === "undefined") {
+    if (!inMemoryProducts) {
+      inMemoryProducts = [...mockProducts];
+    }
+    return [...inMemoryProducts];
+  }
   try {
     const raw = window.localStorage.getItem(PRODUCTS_STORAGE_KEY);
     if (!raw) {
@@ -32,7 +38,10 @@ export function getStoredProducts(): Product[] {
 }
 
 function saveProducts(products: Product[]): void {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined") {
+    inMemoryProducts = [...products];
+    return;
+  }
   try {
     window.localStorage.setItem(PRODUCTS_STORAGE_KEY, JSON.stringify(products));
     window.dispatchEvent(new Event("ergochair-products-change"));
@@ -44,31 +53,6 @@ function saveProducts(products: Product[]): void {
 export async function getProducts(
   filters: ProductFilters = {}
 ): Promise<PaginatedResult<Product>> {
-  // If in browser, fetch through internal Next.js Route Handler /api/products
-  if (typeof window !== "undefined") {
-    try {
-      const params = new URLSearchParams();
-      if (filters.category && filters.category !== CATEGORIES[0]) {
-        params.set("category", filters.category);
-      }
-      if (filters.search) params.set("search", filters.search);
-      if (filters.priceRange) params.set("priceRange", filters.priceRange);
-      if (filters.availability) params.set("availability", filters.availability);
-      if (filters.sort) params.set("sort", filters.sort);
-      if (filters.page) params.set("page", String(filters.page));
-      if (filters.pageSize) params.set("pageSize", String(filters.pageSize));
-
-      const queryStr = params.toString();
-      const url = queryStr ? `/api/products?${queryStr}` : "/api/products";
-      const res = await fetch(url);
-      if (res.ok) {
-        return await res.json();
-      }
-    } catch {
-      // Fallback to local stored products calculation
-    }
-  }
-
   let items = getStoredProducts();
 
   // 1. Filter by category

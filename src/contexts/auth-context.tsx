@@ -19,6 +19,7 @@ import {
   setDefaultAddress as serviceSetDefaultAddress,
   updateUserAddress as serviceUpdateAddress,
   updateUserProfile as serviceUpdateProfile,
+  changeUserPassword as serviceChangePassword,
 } from "@/lib/services/auth.service";
 import { useToast } from "@/hooks/use-toast";
 
@@ -159,6 +160,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [user, toast]
   );
 
+  const changePassword = useCallback(
+    async (currentPassword: string, newPassword: string) => {
+      if (!user) return { success: false, error: "Chưa đăng nhập" };
+      const res = await serviceChangePassword(user.id, currentPassword, newPassword);
+      if (res.success) {
+        toast.success("Đổi mật khẩu thành công!");
+      } else {
+        toast.error(res.error || "Đổi mật khẩu thất bại.");
+      }
+      return res;
+    },
+    [user, toast]
+  );
+
   const value = useMemo(
     () => ({
       user,
@@ -168,6 +183,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       register,
       logout,
       updateProfile,
+      changePassword,
       addAddress,
       updateAddress,
       deleteAddress,
@@ -180,6 +196,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       register,
       logout,
       updateProfile,
+      changePassword,
       addAddress,
       updateAddress,
       deleteAddress,

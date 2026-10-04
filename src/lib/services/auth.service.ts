@@ -1,6 +1,6 @@
 import { mockUsers } from "../data/mock-users";
 import type { Address } from "../types/order";
-import type { LoginCredentials, RegisterData, UpdateProfileData, User } from "../types/user";
+import type { LoginCredentials, RegisterData, UpdateProfileData, User, UserRole, UserStatus } from "../types/user";
 
 const USERS_STORAGE_KEY = "ergochair-users";
 const SESSION_STORAGE_KEY = "ergochair-auth-session";
@@ -99,6 +99,13 @@ export async function login(credentials: LoginCredentials): Promise<{
     return {
       success: false,
       error: "Email hoặc tài khoản không tồn tại trên hệ thống.",
+    };
+  }
+
+  if (found.status === "blocked") {
+    return {
+      success: false,
+      error: "Tài khoản của bạn đã bị tạm khóa bởi Quản trị viên. Vui lòng liên hệ hỗ trợ.",
     };
   }
 
@@ -229,7 +236,8 @@ export async function updateUserProfile(
     ...current,
     fullName: data.fullName?.trim() || current.fullName,
     phone: data.phone?.trim() || current.phone,
-    avatar: data.avatar || current.avatar,
+    avatar: data.avatar !== undefined ? data.avatar : current.avatar,
+    email: data.email?.trim().toLowerCase() || current.email,
     updatedAt: new Date().toISOString(),
   };
 
@@ -238,6 +246,32 @@ export async function updateUserProfile(
   saveSession(updatedUser);
 
   return updatedUser;
+}
+
+export async function changeUserPassword(
+  userId: string,
+  currentPassword?: string,
+  newPassword?: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!newPassword || newPassword.length < 6) {
+    return { success: false, error: "Mật khẩu mới phải có ít nhất 6 ký tự." };
+  }
+  const users = getStoredUsers();
+  const index = users.findIndex((u) => u.id === userId);
+  if (index === -1) {
+    return { success: false, error: "Không tìm thấy thông tin tài khoản." };
+  }
+
+  // If user has an existing password, verify currentPassword
+  if (users[index].password && currentPassword && users[index].password !== currentPassword) {
+    return { success: false, error: "Mật khẩu hiện tại không chính xác." };
+  }
+
+  users[index].password = newPassword;
+  users[index].updatedAt = new Date().toISOString();
+  saveUsers(users);
+  saveSession(users[index]);
+  return { success: true };
 }
 
 export async function addUserAddress(
@@ -351,5 +385,136 @@ export async function loginAsAdminMock(): Promise<User> {
   }
   saveSession(admin);
   return admin;
+}
+
+export async function createUserByAdmin(data: {
+  fullName: string;
+  email: string;
+  phone: string;
+  password?: string;
+  role?: UserRole;
+  status?: UserStatus;
+}): Promise<{ success: boolean; user?: User; error?: string }> {
+  const users = getStoredUsers();
+  const normalizedEmail = (data.email || "").trim().toLowerCase();
+
+  if (!data.fullName?.trim()) {
+    return { success: false, error: "Vui lòng nhập họ và tên." };
+  }
+  if (!normalizedEmail) {
+    return { success: false, error: "Vui lòng nhập email." };
+  }
+  if (users.some((u) => u.email.toLowerCase() === normalizedEmail)) {
+    return { success: false, error: "Email này đã được sử dụng trên hệ thống." };
+  }
+
+  const newUser: User = {
+    id: `usr-${Date.now()}`,
+    fullName: data.fullName.trim(),
+    email: normalizedEmail,
+    phone: data.phone?.trim() || "",
+    role: data.role || "customer",
+    status: data.status || "active",
+    password: data.password?.trim() || "123456",
+    addresses: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  const updatedUsers = [newUser, ...users];
+  saveUsers(updatedUsers);
+  return { success: true, user: newUser };
+}
+
+export async function updateUserByAdmin(
+  userId: string,
+  data: Partial<User>
+): Promise<{ success: boolean; user?: User; error?: string }> {
+  const users = getStoredUsers();
+  const index = users.findIndex((u) => u.id === userId);
+  if (index === -1) {
+    return { success: false, error: "Không tìm thấy người dùng." };
+  }
+
+  const current = users[index];
+  const updatedUser: User = {
+    ...current,
+    fullName: data.fullName !== undefined ? data.fullName.trim() : current.fullName,
+    email: data.email !== undefined ? data.email.trim().toLowerCase() : current.email,
+    phone: data.phone !== undefined ? data.phone.trim() : current.phone,
+    role: data.role !== undefined ? data.role : current.role,
+    status: data.status !== undefined ? data.status : current.status || "active",
+    updatedAt: new Date().toISOString(),
+  };
+
+  users[index] = updatedUser;
+  saveUsers(users);
+
+  // If updating current active session
+  const currentSession = await getCurrentUser();
+  if (currentSession && currentSession.id === userId) {
+    saveSession(updatedUser);
+  }
+
+  return { success: true, user: updatedUser };
+}
+
+export async function toggleUserStatusByAdmin(
+  userId: string
+): Promise<{ success: boolean; newStatus?: UserStatus; error?: string }> {
+  const users = getStoredUsers();
+  const index = users.findIndex((u) => u.id === userId);
+  if (index === -1) {
+    return { success: false, error: "Không tìm thấy người dùng." };
+  }
+
+  const current = users[index];
+  const newStatus: UserStatus = current.status === "blocked" ? "active" : "blocked";
+  current.status = newStatus;
+  current.updatedAt = new Date().toISOString();
+
+  users[index] = current;
+  saveUsers(users);
+
+  return { success: true, newStatus };
+}
+
+export async function resetUserPasswordByAdmin(
+  userId: string,
+  newPassword: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!newPassword || newPassword.length < 6) {
+    return { success: false, error: "Mật khẩu mới phải có tối thiểu 6 ký tự." };
+  }
+
+  const users = getStoredUsers();
+  const index = users.findIndex((u) => u.id === userId);
+  if (index === -1) {
+    return { success: false, error: "Không tìm thấy người dùng." };
+  }
+
+  users[index].password = newPassword;
+  users[index].updatedAt = new Date().toISOString();
+  saveUsers(users);
+
+  return { success: true };
+}
+
+export async function deleteUserByAdmin(
+  userId: string,
+  currentAdminId?: string
+): Promise<{ success: boolean; error?: string }> {
+  if (currentAdminId && userId === currentAdminId) {
+    return { success: false, error: "Bạn không thể tự xóa tài khoản của chính mình." };
+  }
+
+  const users = getStoredUsers();
+  const filtered = users.filter((u) => u.id !== userId);
+  if (filtered.length === users.length) {
+    return { success: false, error: "Không tìm thấy người dùng." };
+  }
+
+  saveUsers(filtered);
+  return { success: true };
 }
 

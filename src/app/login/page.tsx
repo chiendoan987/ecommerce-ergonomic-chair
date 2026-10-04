@@ -103,6 +103,11 @@ function LoginForm() {
           </span>
         </p>
         <div className="auth-logged-actions">
+          {user.role === "admin" && (
+            <Link href="/admin" className="auth-btn-primary" style={{ background: "#D97706", borderColor: "#D97706" }}>
+              Vào trang Quản trị Hệ thống ⚙️
+            </Link>
+          )}
           <Link href="/" className="auth-btn-primary">
             Khám phá trang chủ <span>→</span>
           </Link>

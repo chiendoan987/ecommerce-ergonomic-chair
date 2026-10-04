@@ -34,6 +34,13 @@ export default function AdminOrdersPage() {
   const toast = useToast();
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const q = new URLSearchParams(window.location.search).get("search");
+      if (q) setSearch(q);
+    }
+  }, []);
+
+  useEffect(() => {
     let isMounted = true;
 
     const loadOrdersData = async () => {
@@ -84,6 +91,16 @@ export default function AdminOrdersPage() {
 
   const handleStatusChange = async (orderId: string, nextStatus: OrderStatus) => {
     try {
+      // Cập nhật giao diện tức thì (Optimistic update)
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === orderId ? { ...o, status: nextStatus, updatedAt: new Date().toISOString() } : o
+        )
+      );
+      if (selectedOrder && selectedOrder.id === orderId) {
+        setSelectedOrder((prev) => (prev ? { ...prev, status: nextStatus, updatedAt: new Date().toISOString() } : null));
+      }
+
       const updated = await updateOrderStatus(orderId, nextStatus);
       if (updated) {
         toast.success(`Đã cập nhật trạng thái đơn ${orderId} thành: ${STATUS_CONFIG[nextStatus].label}`);
@@ -99,6 +116,14 @@ export default function AdminOrdersPage() {
 
   return (
     <div className="admin-orders-page">
+      {/* Page Greeting Header */}
+      <div className="admin-greeting-header">
+        <h1 className="admin-greeting-title">Đơn hàng</h1>
+        <p className="admin-greeting-subtitle">
+          Theo dõi, cập nhật trạng thái vận chuyển và xử lý các đơn đặt hàng.
+        </p>
+      </div>
+
       {/* Top filter bar */}
       <div className="admin-filter-bar">
         <div className="admin-filter-bar-left">
@@ -156,13 +181,13 @@ export default function AdminOrdersPage() {
               <tbody>
                 {isLoading ? (
                   <tr>
-                    <td colSpan={8} style={{ textAlign: "center", padding: "3rem", color: "#64748b" }}>
+                    <td colSpan={8} style={{ textAlign: "center", padding: "1.75rem", color: "#64748b" }}>
                       Đang tải danh sách đơn hàng...
                     </td>
                   </tr>
                 ) : filteredOrders.length === 0 ? (
                   <tr>
-                    <td colSpan={8} style={{ textAlign: "center", padding: "3rem", color: "#64748b" }}>
+                    <td colSpan={8} style={{ textAlign: "center", padding: "1.75rem", color: "#64748b" }}>
                       Không tìm thấy đơn hàng nào phù hợp bộ lọc.
                     </td>
                   </tr>
@@ -248,11 +273,11 @@ export default function AdminOrdersPage() {
       {/* Order Detail Modal */}
       {selectedOrder && (
         <div className="admin-modal-overlay" onClick={() => setSelectedOrder(null)}>
-          <div className="admin-modal" style={{ maxWidth: "720px" }} onClick={(e) => e.stopPropagation()}>
+          <div className="admin-modal" style={{ maxWidth: "600px" }} onClick={(e) => e.stopPropagation()}>
             <div className="admin-modal-header">
               <div>
                 <h3 className="admin-modal-title">Chi Tiết Đơn Hàng: {selectedOrder.id}</h3>
-                <span style={{ fontSize: "0.8rem", color: "#64748b" }}>
+                <span style={{ fontSize: "0.75rem", color: "#64748b" }}>
                   Đặt lúc: {new Date(selectedOrder.createdAt).toLocaleString("vi-VN")}
                 </span>
               </div>
@@ -268,20 +293,20 @@ export default function AdminOrdersPage() {
 
             <div className="admin-modal-body">
               {/* Status and Action banner */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f8fafc", padding: "1rem", borderRadius: "10px", marginBottom: "1.5rem" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f8fafc", padding: "0.6rem 0.85rem", borderRadius: "8px", marginBottom: "1rem" }}>
                 <div>
-                  <span style={{ fontSize: "0.8rem", color: "#64748b" }}>Trạng thái hiện tại: </span>
+                  <span style={{ fontSize: "0.76rem", color: "#64748b" }}>Trạng thái hiện tại: </span>
                   <span className={`admin-badge ${STATUS_CONFIG[selectedOrder.status].badgeClass}`}>
                     <span className="admin-badge-dot" />
                     {STATUS_CONFIG[selectedOrder.status].label}
                   </span>
                 </div>
 
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                  <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "#334155" }}>Chuyển sang:</span>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                  <span style={{ fontSize: "0.76rem", fontWeight: 600, color: "#334155" }}>Chuyển sang:</span>
                   <select
                     className="admin-select"
-                    style={{ padding: "0.35rem 1.8rem 0.35rem 0.6rem", fontSize: "0.8rem" }}
+                    style={{ padding: "0.25rem 1.6rem 0.25rem 0.5rem", fontSize: "0.76rem", height: "30px" }}
                     value={selectedOrder.status}
                     onChange={(e) => handleStatusChange(selectedOrder.id, e.target.value as OrderStatus)}
                   >
@@ -295,11 +320,11 @@ export default function AdminOrdersPage() {
               </div>
 
               {/* Delivery Info */}
-              <div style={{ marginBottom: "1.5rem" }}>
-                <h4 style={{ fontSize: "0.9rem", fontWeight: 700, marginBottom: "0.6rem", color: "#0f172a" }}>
+              <div style={{ marginBottom: "1rem" }}>
+                <h4 style={{ fontSize: "0.82rem", fontWeight: 700, marginBottom: "0.4rem", color: "#0f172a" }}>
                   Thông Tin Giao Hàng & Khách Hàng
                 </h4>
-                <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "1rem", fontSize: "0.85rem", lineHeight: 1.6 }}>
+                <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "0.65rem 0.85rem", fontSize: "0.8rem", lineHeight: 1.5 }}>
                   <div><strong>Người nhận:</strong> {selectedOrder.shippingAddress.fullName}</div>
                   <div><strong>Số điện thoại:</strong> {selectedOrder.shippingAddress.phone}</div>
                   {selectedOrder.shippingAddress.email && (
@@ -309,12 +334,17 @@ export default function AdminOrdersPage() {
                     <strong>Địa chỉ nhận hàng:</strong> {selectedOrder.shippingAddress.detail}, {selectedOrder.shippingAddress.district}, {selectedOrder.shippingAddress.province}
                   </div>
                   <div><strong>Phương thức thanh toán:</strong> {PAYMENT_LABELS[selectedOrder.paymentMethod]}</div>
+                  {selectedOrder.shippingAddress.note && (
+                    <div style={{ marginTop: "0.4rem", padding: "0.4rem 0.65rem", background: "#fef3c7", borderRadius: "6px", color: "#92400e", border: "1px solid #fde68a" }}>
+                      <strong>Ghi chú từ khách:</strong> {selectedOrder.shippingAddress.note}
+                    </div>
+                  )}
                 </div>
               </div>
 
               {/* Products in Order */}
-              <div style={{ marginBottom: "1.5rem" }}>
-                <h4 style={{ fontSize: "0.9rem", fontWeight: 700, marginBottom: "0.6rem", color: "#0f172a" }}>
+              <div style={{ marginBottom: "1rem" }}>
+                <h4 style={{ fontSize: "0.82rem", fontWeight: 700, marginBottom: "0.4rem", color: "#0f172a" }}>
                   Sản Phẩm Đã Mua ({selectedOrder.items.length})
                 </h4>
                 <div style={{ border: "1px solid #e2e8f0", borderRadius: "8px", overflow: "hidden" }}>
@@ -331,23 +361,23 @@ export default function AdminOrdersPage() {
                       {selectedOrder.items.map((item) => (
                         <tr key={item.id}>
                           <td>
-                            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.55rem" }}>
                               <img
                                 src={item.productImage}
                                 alt={item.productName}
-                                style={{ width: "36px", height: "36px", borderRadius: "6px", objectFit: "cover", background: "#f8fafc" }}
+                                style={{ width: "28px", height: "28px", borderRadius: "5px", objectFit: "cover", background: "#f8fafc" }}
                               />
                               <div>
-                                <div style={{ fontWeight: 600 }}>{item.productName}</div>
+                                <div style={{ fontWeight: 600, fontSize: "0.8rem" }}>{item.productName}</div>
                                 {item.variantName && (
-                                  <div style={{ fontSize: "0.75rem", color: "#64748b" }}>{item.variantName}</div>
+                                  <div style={{ fontSize: "0.7rem", color: "#64748b" }}>{item.variantName}</div>
                                 )}
                               </div>
                             </div>
                           </td>
-                          <td>{formatPrice(item.price)}</td>
-                          <td>x{item.quantity}</td>
-                          <td style={{ textAlign: "right", fontWeight: 600 }}>
+                          <td style={{ fontSize: "0.78rem" }}>{formatPrice(item.price)}</td>
+                          <td style={{ fontSize: "0.78rem" }}>x{item.quantity}</td>
+                          <td style={{ textAlign: "right", fontWeight: 600, fontSize: "0.8rem" }}>
                             {formatPrice(item.price * item.quantity)}
                           </td>
                         </tr>
@@ -358,7 +388,7 @@ export default function AdminOrdersPage() {
               </div>
 
               {/* Order Financial Summary */}
-              <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "1rem", fontSize: "0.85rem", display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+              <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "0.65rem 0.85rem", fontSize: "0.8rem", display: "flex", flexDirection: "column", gap: "0.3rem" }}>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <span style={{ color: "#64748b" }}>Tạm tính:</span>
                   <span>{formatPrice(selectedOrder.subtotal)}</span>
@@ -373,7 +403,7 @@ export default function AdminOrdersPage() {
                   <span style={{ color: "#64748b" }}>Phí vận chuyển:</span>
                   <span>{selectedOrder.shippingFee === 0 ? "Miễn phí" : formatPrice(selectedOrder.shippingFee)}</span>
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid #e2e8f0", paddingTop: "0.5rem", marginTop: "0.2rem", fontSize: "1rem", fontWeight: 700, color: "#0f172a" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid #e2e8f0", paddingTop: "0.4rem", marginTop: "0.2rem", fontSize: "0.88rem", fontWeight: 700, color: "#0f172a" }}>
                   <span>Tổng tiền thanh toán:</span>
                   <span style={{ color: "#0284c7" }}>{formatPrice(selectedOrder.total)}</span>
                 </div>
