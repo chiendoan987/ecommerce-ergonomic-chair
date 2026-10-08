@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Poppins, Playfair_Display } from "next/font/google";
+import { Work_Sans, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/contexts/toast-context";
 import { AuthProvider } from "@/contexts/auth-context";
@@ -11,17 +11,19 @@ import { ScrollToTop } from "@/components/scroll-to-top";
 import { FloatingContactButtons } from "@/components/floating-contact-buttons";
 import { FloatingChatbot } from "@/components/floating-chatbot";
 
-const poppins = Poppins({
-  variable: "--font-poppins",
-  subsets: ["latin", "latin-ext"],
-  weight: ["300", "400", "500", "600", "700"],
+// 1. Font nền giao diện (Pangea Fallback) ~88%: menu, link, tên sản phẩm, nút, nhãn nhỏ, body text
+const pangeaFallback = Work_Sans({
+  variable: "--font-pangea-fallback",
+  subsets: ["latin", "vietnamese"],
+  weight: ["400", "500", "600", "700"],
   display: "swap",
 });
 
-const playfair = Playfair_Display({
-  variable: "--font-playfair",
+// 2. Font tiêu đề lớn (Criteria CF Fallback) ~12%: tiêu đề h1, h2, h3, h4
+const criteriaFallback = Plus_Jakarta_Sans({
+  variable: "--font-criteria-fallback",
   subsets: ["latin", "vietnamese"],
-  weight: ["500", "600", "700"],
+  weight: ["400", "500", "600", "700"],
   display: "swap",
 });
 
@@ -40,7 +42,7 @@ export default function RootLayout({
     <html
       lang="vi"
       data-scroll-behavior="smooth"
-      className={`${poppins.variable} ${playfair.variable} h-full antialiased`}
+      className={`${pangeaFallback.variable} ${criteriaFallback.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <ToastProvider>

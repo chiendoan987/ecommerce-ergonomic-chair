@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { getOrders, updateOrderStatus } from "@/lib/services/order.service";
+import { getOrders, updateOrderStatus, updateOrderPayment } from "@/lib/services/order.service";
 import type { Order, OrderStatus } from "@/lib/types/order";
 import { formatPrice, formatDate } from "@/lib/utils/format";
 import { useToast } from "@/hooks/use-toast";
@@ -209,6 +209,11 @@ export default function AdminOrdersPage() {
                         <div style={{ fontSize: "0.75rem", color: "#94a3b8" }}>
                           {order.shippingAddress.province}
                         </div>
+                        {order.trackingCode && (
+                          <div style={{ fontSize: "0.7rem", color: "#0284c7", fontWeight: 600, marginTop: "2px" }}>
+                            📦 {order.trackingCode}
+                          </div>
+                        )}
                       </td>
                       <td>
                         <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
@@ -230,9 +235,20 @@ export default function AdminOrdersPage() {
                         {formatPrice(order.total)}
                       </td>
                       <td>
-                        <span style={{ fontSize: "0.78rem", color: "#475569" }}>
-                          {order.paymentMethod.toUpperCase()}
-                        </span>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                          <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "#334155" }}>
+                            {order.paymentMethod.toUpperCase()}
+                          </span>
+                          {order.paymentStatus === "paid" ? (
+                            <span style={{ fontSize: "0.7rem", color: "#166534", background: "#dcfce7", padding: "1px 6px", borderRadius: "4px", width: "fit-content", fontWeight: 600 }}>
+                              ✓ Đã TT
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: "0.7rem", color: "#92400e", background: "#fef3c7", padding: "1px 6px", borderRadius: "4px", width: "fit-content" }}>
+                              Chưa TT
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td style={{ fontSize: "0.8rem", color: "#64748b" }}>
                         {formatDate(order.createdAt)}
@@ -333,7 +349,48 @@ export default function AdminOrdersPage() {
                   <div>
                     <strong>Địa chỉ nhận hàng:</strong> {selectedOrder.shippingAddress.detail}, {selectedOrder.shippingAddress.district}, {selectedOrder.shippingAddress.province}
                   </div>
-                  <div><strong>Phương thức thanh toán:</strong> {PAYMENT_LABELS[selectedOrder.paymentMethod]}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", margin: "4px 0" }}>
+                    <span><strong>Thanh toán:</strong> {PAYMENT_LABELS[selectedOrder.paymentMethod]}</span>
+                    {selectedOrder.paymentStatus === "paid" ? (
+                      <span style={{ color: "#166534", fontWeight: 700, background: "#dcfce7", padding: "1px 6px", borderRadius: "4px", fontSize: "0.75rem" }}>
+                        ✓ ĐÃ THANH TOÁN
+                      </span>
+                    ) : (
+                      <>
+                        <span style={{ color: "#92400e", fontWeight: 700, background: "#fef3c7", padding: "1px 6px", borderRadius: "4px", fontSize: "0.75rem" }}>
+                          CHƯA THANH TOÁN
+                        </span>
+                        <button
+                          type="button"
+                          style={{ fontSize: "0.72rem", padding: "2px 8px", background: "#16a34a", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: 600 }}
+                          onClick={async () => {
+                            await updateOrderPayment(selectedOrder.id, "paid");
+                            toast.success("Đã xác nhận đơn hàng đã thanh toán thành công!");
+                            setRefreshKey((k) => k + 1);
+                            setSelectedOrder((prev) => (prev ? { ...prev, paymentStatus: "paid" } : null));
+                          }}
+                        >
+                          Xác nhận đã thanh toán
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  <div><strong>Đơn vị vận chuyển:</strong> {selectedOrder.carrier || "Giao Hàng Tiết Kiệm (GHTK)"}</div>
+                  {selectedOrder.trackingCode && (
+                    <div>
+                      <strong>Mã vận đơn:</strong> <span style={{ color: "#0284c7", fontWeight: 600 }}>{selectedOrder.trackingCode}</span>
+                    </div>
+                  )}
+                  {selectedOrder.shippingMethod && (
+                    <div>
+                      <strong>Gói giao hàng:</strong>{" "}
+                      {selectedOrder.shippingMethod === "express"
+                        ? "Hỏa tốc 2H (Nội thành)"
+                        : selectedOrder.shippingMethod === "assembly"
+                        ? "Giao & Lắp đặt tận phòng (ErgoCare)"
+                        : "Giao hàng Tiêu chuẩn"}
+                    </div>
+                  )}
                   {selectedOrder.shippingAddress.note && (
                     <div style={{ marginTop: "0.4rem", padding: "0.4rem 0.65rem", background: "#fef3c7", borderRadius: "6px", color: "#92400e", border: "1px solid #fde68a" }}>
                       <strong>Ghi chú từ khách:</strong> {selectedOrder.shippingAddress.note}

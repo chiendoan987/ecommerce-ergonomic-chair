@@ -1,361 +1,266 @@
-import { mockUsers } from "../data/mock-users";
 import type { Address } from "../types/order";
 import type { LoginCredentials, RegisterData, UpdateProfileData, User, UserRole, UserStatus } from "../types/user";
 
-const USERS_STORAGE_KEY = "ergochair-users";
 const SESSION_STORAGE_KEY = "ergochair-auth-session";
 
-function getStoredUsers(): User[] {
-  if (typeof window === "undefined") return [...mockUsers];
-  try {
-    const raw = window.localStorage.getItem(USERS_STORAGE_KEY);
-    if (!raw) {
-      window.localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(mockUsers));
-      return [...mockUsers];
-    }
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : [...mockUsers];
-  } catch {
-    return [...mockUsers];
-  }
-}
-
-function saveUsers(users: User[]): void {
+function saveSession(user: User | null, notify: boolean = true): void {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
-  } catch {
-    // Ignore error
-  }
-}
+    const prevRaw = window.localStorage.getItem(SESSION_STORAGE_KEY);
+    const newRaw = user ? JSON.stringify(user) : null;
 
-function saveSession(user: User | null): void {
-  if (typeof window === "undefined") return;
-  try {
-    if (user) {
-      window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(user));
+    // Nếu dữ liệu không thay đổi, không ghi lại và không bắn event
+    if (prevRaw === newRaw) return;
+
+    if (newRaw) {
+      window.localStorage.setItem(SESSION_STORAGE_KEY, newRaw);
     } else {
       window.localStorage.removeItem(SESSION_STORAGE_KEY);
     }
-    window.dispatchEvent(new Event("ergochair-auth-change"));
+
+    if (notify) {
+      window.dispatchEvent(new Event("ergochair-auth-change"));
+    }
   } catch {
     // Ignore error
   }
 }
 
+/**
+ * Lấy thông tin phiên đăng nhập người dùng hiện tại (đồng bộ từ MySQL Database)
+ */
 export async function getCurrentUser(): Promise<User | null> {
   if (typeof window === "undefined") return null;
   try {
     const raw = window.localStorage.getItem(SESSION_STORAGE_KEY);
     if (!raw) return null;
     const sessionUser = JSON.parse(raw) as User;
-    // Always refresh with the latest user object from stored users list
-    const users = getStoredUsers();
-    const found = users.find((u) => u.id === sessionUser.id);
-    return found || sessionUser;
+
+    // Refresh dữ liệu mới nhất từ server database
+    const res = await fetch(`/api/auth/me?id=${encodeURIComponent(sessionUser.id)}`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.user) {
+        // Cập nhật session ngầm mà không kích hoạt event để tránh vòng lặp vô tận
+        saveSession(data.user, false);
+        return data.user;
+      }
+    }
+
+    return sessionUser;
   } catch {
     return null;
   }
 }
 
+/**
+ * Đăng nhập hệ thống (Xác thực với MySQL Database)
+ */
 export async function login(credentials: LoginCredentials): Promise<{
   success: boolean;
   user?: User;
   error?: string;
 }> {
-  if (typeof window !== "undefined") {
-    try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(credentials),
-      });
-      const data = await res.json();
-      if (res.ok && data.user) {
-        saveSession(data.user);
-        return { success: true, user: data.user };
-      } else if (data.error) {
-        return { success: false, error: data.error };
-      }
-    } catch {
-      // fallback to local validation
+  try {
+    const res = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(credentials),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || !data.user) {
+      return {
+        success: false,
+        error: data.error || "Email hoặc mật khẩu không chính xác.",
+      };
     }
-  }
 
-  const users = getStoredUsers();
-  const normalizedEmail = (credentials.email || "").trim().toLowerCase();
-  const enteredPassword = credentials.password || "";
-
-  if (!normalizedEmail) {
+    saveSession(data.user);
+    return {
+      success: true,
+      user: data.user,
+    };
+  } catch (error) {
     return {
       success: false,
-      error: "Vui lòng nhập địa chỉ email.",
+      error: "Không thể kết nối đến máy chủ xác thực.",
     };
   }
-
-  const found = users.find((u) => u.email.toLowerCase() === normalizedEmail);
-
-  if (!found) {
-    return {
-      success: false,
-      error: "Email hoặc tài khoản không tồn tại trên hệ thống.",
-    };
-  }
-
-  if (found.status === "blocked") {
-    return {
-      success: false,
-      error: "Tài khoản của bạn đã bị tạm khóa bởi Quản trị viên. Vui lòng liên hệ hỗ trợ.",
-    };
-  }
-
-  if (!enteredPassword.trim()) {
-    return {
-      success: false,
-      error: "Vui lòng nhập mật khẩu.",
-    };
-  }
-
-  const expectedPassword = found.password || "123456";
-  if (enteredPassword !== expectedPassword) {
-    return {
-      success: false,
-      error: "Mật khẩu không chính xác. Vui lòng kiểm tra lại (Mật khẩu tài khoản mẫu là 123456).",
-    };
-  }
-
-  saveSession(found);
-  return {
-    success: true,
-    user: found,
-  };
 }
 
+/**
+ * Đăng ký tài khoản người dùng mới vào MySQL
+ */
 export async function register(data: RegisterData): Promise<{
   success: boolean;
   user?: User;
   error?: string;
 }> {
-  if (typeof window !== "undefined") {
-    try {
-      const res = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      const resData = await res.json();
-      if (res.ok && resData.user) {
-        const users = getStoredUsers();
-        saveUsers([resData.user, ...users]);
-        saveSession(resData.user);
-        return { success: true, user: resData.user };
-      } else if (resData.error) {
-        return { success: false, error: resData.error };
-      }
-    } catch {
-      // fallback to local registration
+  try {
+    const res = await fetch("/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+
+    const resData = await res.json();
+
+    if (!res.ok || !resData.user) {
+      return {
+        success: false,
+        error: resData.error || "Không thể tạo tài khoản.",
+      };
     }
-  }
 
-  const users = getStoredUsers();
-  const normalizedEmail = data.email.trim().toLowerCase();
-  const enteredPassword = (data.password || "").trim();
-
-  if (!data.fullName.trim()) {
+    saveSession(resData.user);
+    return {
+      success: true,
+      user: resData.user,
+    };
+  } catch (error) {
     return {
       success: false,
-      error: "Vui lòng nhập họ và tên.",
+      error: "Lỗi kết nối khi đăng ký tài khoản.",
     };
   }
-
-  if (!normalizedEmail) {
-    return {
-      success: false,
-      error: "Vui lòng nhập địa chỉ email.",
-    };
-  }
-
-  if (!data.phone.trim()) {
-    return {
-      success: false,
-      error: "Vui lòng nhập số điện thoại.",
-    };
-  }
-
-  if (!enteredPassword || enteredPassword.length < 6) {
-    return {
-      success: false,
-      error: "Mật khẩu phải có ít nhất 6 ký tự.",
-    };
-  }
-
-  const existing = users.find((u) => u.email.toLowerCase() === normalizedEmail);
-  if (existing) {
-    return {
-      success: false,
-      error: "Email này đã được đăng ký. Vui lòng đăng nhập hoặc sử dụng email khác.",
-    };
-  }
-
-  const newUser: User = {
-    id: `usr-${Date.now()}`,
-    fullName: data.fullName.trim(),
-    email: normalizedEmail,
-    phone: data.phone.trim(),
-    role: "customer",
-    password: enteredPassword,
-    addresses: [],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-
-  const updatedUsers = [newUser, ...users];
-  saveUsers(updatedUsers);
-  saveSession(newUser);
-
-  return {
-    success: true,
-    user: newUser,
-  };
 }
 
+/**
+ * Đăng xuất
+ */
 export async function logout(): Promise<void> {
+  try {
+    await fetch("/api/auth/logout", { method: "POST" });
+  } catch {}
   saveSession(null);
 }
 
+/**
+ * Cập nhật hồ sơ cá nhân
+ */
 export async function updateUserProfile(
   userId: string,
   data: UpdateProfileData
 ): Promise<User | null> {
-  const users = getStoredUsers();
-  const index = users.findIndex((u) => u.id === userId);
-  if (index === -1) return null;
+  try {
+    const res = await fetch("/api/auth/profile", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, ...data }),
+    });
 
-  const current = users[index];
-  const updatedUser: User = {
-    ...current,
-    fullName: data.fullName?.trim() || current.fullName,
-    phone: data.phone?.trim() || current.phone,
-    avatar: data.avatar !== undefined ? data.avatar : current.avatar,
-    email: data.email?.trim().toLowerCase() || current.email,
-    updatedAt: new Date().toISOString(),
-  };
+    if (!res.ok) return null;
 
-  users[index] = updatedUser;
-  saveUsers(users);
-  saveSession(updatedUser);
-
-  return updatedUser;
+    const resData = await res.json();
+    if (resData.user) {
+      saveSession(resData.user);
+      return resData.user;
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
+/**
+ * Đổi mật khẩu cá nhân
+ */
 export async function changeUserPassword(
   userId: string,
   currentPassword?: string,
   newPassword?: string
 ): Promise<{ success: boolean; error?: string }> {
-  if (!newPassword || newPassword.length < 6) {
-    return { success: false, error: "Mật khẩu mới phải có ít nhất 6 ký tự." };
-  }
-  const users = getStoredUsers();
-  const index = users.findIndex((u) => u.id === userId);
-  if (index === -1) {
-    return { success: false, error: "Không tìm thấy thông tin tài khoản." };
-  }
+  try {
+    const res = await fetch("/api/auth/profile?action=change-password", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, currentPassword, newPassword }),
+    });
 
-  // If user has an existing password, verify currentPassword
-  if (users[index].password && currentPassword && users[index].password !== currentPassword) {
-    return { success: false, error: "Mật khẩu hiện tại không chính xác." };
-  }
+    const data = await res.json();
+    if (!res.ok) {
+      return { success: false, error: data.error || "Đổi mật khẩu thất bại." };
+    }
 
-  users[index].password = newPassword;
-  users[index].updatedAt = new Date().toISOString();
-  saveUsers(users);
-  saveSession(users[index]);
-  return { success: true };
+    return { success: true };
+  } catch {
+    return { success: false, error: "Lỗi kết nối máy chủ." };
+  }
 }
 
+/**
+ * Thêm địa chỉ mới
+ */
 export async function addUserAddress(
   userId: string,
   address: Omit<Address, "id">
 ): Promise<Address> {
-  const users = getStoredUsers();
-  const index = users.findIndex((u) => u.id === userId);
-  if (index === -1) throw new Error("User not found");
+  const res = await fetch("/api/auth/profile?action=add-address", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, address }),
+  });
 
-  const newAddress: Address = {
-    ...address,
-    id: `addr-${Date.now()}`,
-    isDefault: address.isDefault ?? users[index].addresses.length === 0,
-  };
-
-  let addresses = [...users[index].addresses];
-  if (newAddress.isDefault) {
-    addresses = addresses.map((a) => ({ ...a, isDefault: false }));
+  if (!res.ok) {
+    throw new Error("Không thể thêm địa chỉ.");
   }
-  addresses.push(newAddress);
 
-  users[index].addresses = addresses;
-  users[index].updatedAt = new Date().toISOString();
-  saveUsers(users);
-  saveSession(users[index]);
-
-  return newAddress;
+  const data = await res.json();
+  // Refresh current user session
+  await getCurrentUser();
+  return data.address;
 }
 
+/**
+ * Cập nhật địa chỉ
+ */
 export async function updateUserAddress(
   userId: string,
   addressId: string,
   updates: Partial<Address>
 ): Promise<Address | null> {
-  const users = getStoredUsers();
-  const index = users.findIndex((u) => u.id === userId);
-  if (index === -1) return null;
+  const res = await fetch("/api/auth/profile?action=update-address", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, addressId, updates }),
+  });
 
-  let addresses = [...users[index].addresses];
-  const addrIndex = addresses.findIndex((a) => a.id === addressId);
-  if (addrIndex === -1) return null;
+  if (!res.ok) return null;
 
-  if (updates.isDefault) {
-    addresses = addresses.map((a) => ({ ...a, isDefault: false }));
-  }
-
-  addresses[addrIndex] = {
-    ...addresses[addrIndex],
-    ...updates,
-  };
-
-  users[index].addresses = addresses;
-  users[index].updatedAt = new Date().toISOString();
-  saveUsers(users);
-  saveSession(users[index]);
-
-  return addresses[addrIndex];
+  const data = await res.json();
+  await getCurrentUser();
+  return data.address;
 }
 
+/**
+ * Xóa địa chỉ
+ */
 export async function deleteUserAddress(
   userId: string,
   addressId: string
 ): Promise<boolean> {
-  const users = getStoredUsers();
-  const index = users.findIndex((u) => u.id === userId);
-  if (index === -1) return false;
+  const res = await fetch("/api/auth/profile?action=delete-address", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, addressId }),
+  });
 
-  const currentAddresses = users[index].addresses;
-  const filtered = currentAddresses.filter((a) => a.id !== addressId);
+  if (!res.ok) return false;
 
-  // If deleted address was default and other addresses exist, make first one default
-  if (filtered.length > 0 && !filtered.some((a) => a.isDefault)) {
-    filtered[0].isDefault = true;
-  }
-
-  users[index].addresses = filtered;
-  users[index].updatedAt = new Date().toISOString();
-  saveUsers(users);
-  saveSession(users[index]);
-
+  await getCurrentUser();
   return true;
 }
 
+/**
+ * Đặt địa chỉ mặc định
+ */
 export async function setDefaultAddress(
   userId: string,
   addressId: string
@@ -363,30 +268,46 @@ export async function setDefaultAddress(
   return (await updateUserAddress(userId, addressId, { isDefault: true })) !== null;
 }
 
+/**
+ * Lấy danh sách người dùng cho Quản trị viên (MySQL Database)
+ */
 export async function getAllUsers(): Promise<User[]> {
-  return getStoredUsers();
-}
+  try {
+    const res = await fetch("/api/auth/users", {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+    });
 
-export async function loginAsAdminMock(): Promise<User> {
-  const users = getStoredUsers();
-  let admin = users.find((u) => u.role === "admin");
-  if (!admin) {
-    admin = mockUsers.find((u) => u.role === "admin") || {
-      id: "usr-admin-01",
-      fullName: "Nguyễn Văn Quản Trị",
-      email: "admin@ergochair.vn",
-      phone: "0901234567",
-      role: "admin",
-      addresses: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    saveUsers([admin, ...users.filter((u) => u.id !== admin!.id)]);
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (error) {
+    console.error("Lỗi getAllUsers service:", error);
+    return [];
   }
-  saveSession(admin);
-  return admin;
 }
 
+/**
+ * Đăng nhập nhanh quyền Admin (dùng tài khoản quản trị thực tế trong MySQL)
+ */
+export async function loginAsDefaultAdmin(): Promise<User> {
+  const loginRes = await login({
+    email: "admin@ergochair.vn",
+    password: "123456",
+  });
+
+  if (loginRes.success && loginRes.user) {
+    return loginRes.user;
+  }
+
+  throw new Error("Không thể đăng nhập quyền Admin.");
+}
+
+export const loginAsAdminMock = loginAsDefaultAdmin;
+
+/**
+ * Quản trị viên tạo người dùng
+ */
 export async function createUserByAdmin(data: {
   fullName: string;
   email: string;
@@ -395,126 +316,121 @@ export async function createUserByAdmin(data: {
   role?: UserRole;
   status?: UserStatus;
 }): Promise<{ success: boolean; user?: User; error?: string }> {
-  const users = getStoredUsers();
-  const normalizedEmail = (data.email || "").trim().toLowerCase();
+  try {
+    const res = await fetch("/api/auth/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
 
-  if (!data.fullName?.trim()) {
-    return { success: false, error: "Vui lòng nhập họ và tên." };
-  }
-  if (!normalizedEmail) {
-    return { success: false, error: "Vui lòng nhập email." };
-  }
-  if (users.some((u) => u.email.toLowerCase() === normalizedEmail)) {
-    return { success: false, error: "Email này đã được sử dụng trên hệ thống." };
-  }
+    const resData = await res.json();
+    if (!res.ok) {
+      return { success: false, error: resData.error || "Không thể tạo người dùng." };
+    }
 
-  const newUser: User = {
-    id: `usr-${Date.now()}`,
-    fullName: data.fullName.trim(),
-    email: normalizedEmail,
-    phone: data.phone?.trim() || "",
-    role: data.role || "customer",
-    status: data.status || "active",
-    password: data.password?.trim() || "123456",
-    addresses: [],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-
-  const updatedUsers = [newUser, ...users];
-  saveUsers(updatedUsers);
-  return { success: true, user: newUser };
+    return { success: true, user: resData.user };
+  } catch {
+    return { success: false, error: "Lỗi kết nối máy chủ." };
+  }
 }
 
+/**
+ * Quản trị viên cập nhật người dùng
+ */
 export async function updateUserByAdmin(
   userId: string,
   data: Partial<User>
 ): Promise<{ success: boolean; user?: User; error?: string }> {
-  const users = getStoredUsers();
-  const index = users.findIndex((u) => u.id === userId);
-  if (index === -1) {
-    return { success: false, error: "Không tìm thấy người dùng." };
+  try {
+    const res = await fetch(`/api/auth/users/${encodeURIComponent(userId)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+
+    const resData = await res.json();
+    if (!res.ok) {
+      return { success: false, error: resData.error || "Không thể cập nhật người dùng." };
+    }
+
+    return { success: true, user: resData.user };
+  } catch {
+    return { success: false, error: "Lỗi kết nối máy chủ." };
   }
-
-  const current = users[index];
-  const updatedUser: User = {
-    ...current,
-    fullName: data.fullName !== undefined ? data.fullName.trim() : current.fullName,
-    email: data.email !== undefined ? data.email.trim().toLowerCase() : current.email,
-    phone: data.phone !== undefined ? data.phone.trim() : current.phone,
-    role: data.role !== undefined ? data.role : current.role,
-    status: data.status !== undefined ? data.status : current.status || "active",
-    updatedAt: new Date().toISOString(),
-  };
-
-  users[index] = updatedUser;
-  saveUsers(users);
-
-  // If updating current active session
-  const currentSession = await getCurrentUser();
-  if (currentSession && currentSession.id === userId) {
-    saveSession(updatedUser);
-  }
-
-  return { success: true, user: updatedUser };
 }
 
+/**
+ * Quản trị viên đổi trạng thái khóa/mở khóa
+ */
 export async function toggleUserStatusByAdmin(
   userId: string
 ): Promise<{ success: boolean; newStatus?: UserStatus; error?: string }> {
-  const users = getStoredUsers();
-  const index = users.findIndex((u) => u.id === userId);
-  if (index === -1) {
-    return { success: false, error: "Không tìm thấy người dùng." };
+  try {
+    const res = await fetch(`/api/auth/users/${encodeURIComponent(userId)}?action=toggle-status`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const resData = await res.json();
+    if (!res.ok) {
+      return { success: false, error: resData.error || "Không thể đổi trạng thái." };
+    }
+
+    return { success: true, newStatus: resData.newStatus };
+  } catch {
+    return { success: false, error: "Lỗi kết nối máy chủ." };
   }
-
-  const current = users[index];
-  const newStatus: UserStatus = current.status === "blocked" ? "active" : "blocked";
-  current.status = newStatus;
-  current.updatedAt = new Date().toISOString();
-
-  users[index] = current;
-  saveUsers(users);
-
-  return { success: true, newStatus };
 }
 
+/**
+ * Quản trị viên đặt lại mật khẩu cho người dùng
+ */
 export async function resetUserPasswordByAdmin(
   userId: string,
   newPassword: string
 ): Promise<{ success: boolean; error?: string }> {
-  if (!newPassword || newPassword.length < 6) {
-    return { success: false, error: "Mật khẩu mới phải có tối thiểu 6 ký tự." };
+  try {
+    const res = await fetch(`/api/auth/users/${encodeURIComponent(userId)}?action=reset-password`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ newPassword }),
+    });
+
+    const resData = await res.json();
+    if (!res.ok) {
+      return { success: false, error: resData.error || "Không thể đặt lại mật khẩu." };
+    }
+
+    return { success: true };
+  } catch {
+    return { success: false, error: "Lỗi kết nối máy chủ." };
   }
-
-  const users = getStoredUsers();
-  const index = users.findIndex((u) => u.id === userId);
-  if (index === -1) {
-    return { success: false, error: "Không tìm thấy người dùng." };
-  }
-
-  users[index].password = newPassword;
-  users[index].updatedAt = new Date().toISOString();
-  saveUsers(users);
-
-  return { success: true };
 }
 
+/**
+ * Quản trị viên xóa người dùng
+ */
 export async function deleteUserByAdmin(
   userId: string,
   currentAdminId?: string
 ): Promise<{ success: boolean; error?: string }> {
-  if (currentAdminId && userId === currentAdminId) {
-    return { success: false, error: "Bạn không thể tự xóa tài khoản của chính mình." };
-  }
+  try {
+    const url = currentAdminId
+      ? `/api/auth/users/${encodeURIComponent(userId)}?currentAdminId=${encodeURIComponent(currentAdminId)}`
+      : `/api/auth/users/${encodeURIComponent(userId)}`;
 
-  const users = getStoredUsers();
-  const filtered = users.filter((u) => u.id !== userId);
-  if (filtered.length === users.length) {
-    return { success: false, error: "Không tìm thấy người dùng." };
-  }
+    const res = await fetch(url, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+    });
 
-  saveUsers(filtered);
-  return { success: true };
+    const resData = await res.json();
+    if (!res.ok) {
+      return { success: false, error: resData.error || "Không thể xóa người dùng." };
+    }
+
+    return { success: true };
+  } catch {
+    return { success: false, error: "Lỗi kết nối máy chủ." };
+  }
 }
-

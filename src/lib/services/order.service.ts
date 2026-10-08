@@ -1,128 +1,154 @@
-import { mockOrders } from "../data/mock-orders";
-import type { Order, CreateOrderInput } from "../types/order";
+import type { Order, CreateOrderInput, OrderStatus } from "../types/order";
 
-const ORDERS_STORAGE_KEY = "ergochair-orders";
-let inMemoryOrders: Order[] | null = null;
-
-function getStoredOrders(): Order[] {
-  if (typeof window === "undefined") {
-    if (!inMemoryOrders) {
-      inMemoryOrders = [...mockOrders];
-    }
-    return [...inMemoryOrders];
-  }
-  try {
-    const raw = window.localStorage.getItem(ORDERS_STORAGE_KEY);
-    if (!raw) {
-      window.localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(mockOrders));
-      return [...mockOrders];
-    }
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : [...mockOrders];
-  } catch {
-    return [...mockOrders];
-  }
-}
-
-function saveOrders(orders: Order[]): void {
-  if (typeof window === "undefined") {
-    inMemoryOrders = [...orders];
-    return;
-  }
-  try {
-    window.localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(orders));
-    window.dispatchEvent(new Event("ergochair-orders-change"));
-  } catch {
-    // Ignore error
-  }
-}
-
+/**
+ * Lấy danh sách đơn hàng từ Backend API (MySQL)
+ */
 export async function getOrders(userId?: string | null): Promise<Order[]> {
-  const allOrders = getStoredOrders();
-  if (userId) {
-    return allOrders.filter((o) => o.userId === userId);
+  try {
+    const url = userId
+      ? `/api/orders?userId=${encodeURIComponent(userId)}`
+      : "/api/orders";
+
+    const res = await fetch(url, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      throw new Error(`Lỗi tải danh sách đơn hàng: HTTP ${res.status}`);
+    }
+
+    return await res.json();
+  } catch (error) {
+    console.error("Lỗi getOrders service:", error);
+    return [];
   }
-  return allOrders;
 }
 
+/**
+ * Lấy thông tin chi tiết đơn hàng theo ID
+ */
 export async function getOrderById(id: string): Promise<Order | null> {
-  const allOrders = getStoredOrders();
-  const found = allOrders.find((o) => o.id === id);
-  return found ? { ...found } : null;
+  try {
+    const res = await fetch(`/api/orders/${encodeURIComponent(id)}`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      return null;
+    }
+
+    return await res.json();
+  } catch (error) {
+    console.error(`Lỗi getOrderById service (${id}):`, error);
+    return null;
+  }
 }
 
+/**
+ * Đặt hàng mới (Lưu trực tiếp vào MySQL Database và cập nhật kho hàng)
+ */
 export async function createOrder(input: CreateOrderInput): Promise<Order> {
-  const subtotal = input.items.reduce(
-    (sum, item) => sum + item.product.price * item.quantity,
-    0
-  );
-  const shippingFee = 30000;
-  const discount = input.couponCode === "ERGO10" ? Math.round(subtotal * 0.1) : 0;
-  const total = subtotal - discount + shippingFee;
+  const res = await fetch("/api/orders", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
 
-  const newOrder: Order = {
-    id: `ord-${Date.now()}`,
-    userId: input.userId ?? null,
-    items: input.items.map((i, index) => ({
-      id: `item-${Date.now()}-${index}`,
-      productId: i.product.id,
-      productName: i.product.name,
-      productImage: i.product.image,
-      price: i.product.price,
-      quantity: i.quantity,
-      variantId: i.variantId,
-    })),
-    shippingAddress: input.shippingAddress,
-    paymentMethod: input.paymentMethod,
-    status: "pending",
-    subtotal,
-    discount,
-    shippingFee,
-    total,
-    couponCode: input.couponCode,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || "Không thể tạo đơn hàng.");
+  }
 
-  const currentOrders = getStoredOrders();
-  const updatedOrders = [newOrder, ...currentOrders];
-  saveOrders(updatedOrders);
+  const createdOrder = await res.json();
 
   if (typeof window !== "undefined") {
-    fetch("/api/orders", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
-    }).catch(() => {});
+    window.dispatchEvent(new Event("ergochair-orders-change"));
+    window.dispatchEvent(new Event("ergochair-products-change"));
   }
 
-  return newOrder;
+  return createdOrder;
 }
 
+/**
+ * Cập nhật trạng thái đơn hàng (Đồng bộ MySQL và kho hàng)
+ */
 export async function updateOrderStatus(
   orderId: string,
-  status: Order["status"]
+  status: OrderStatus,
+  cancelReason?: string
 ): Promise<Order | null> {
-  const orders = getStoredOrders();
-  const index = orders.findIndex((o) => o.id === orderId);
-  if (index === -1) return null;
+  const res = await fetch(`/api/orders/${encodeURIComponent(orderId)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status, cancelReason }),
+  });
 
-  const updatedOrder: Order = {
-    ...orders[index],
-    status,
-    updatedAt: new Date().toISOString(),
-  };
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || "Không thể cập nhật trạng thái đơn hàng.");
+  }
 
-  orders[index] = updatedOrder;
-  saveOrders(orders);
+  const updatedOrder = await res.json();
 
   if (typeof window !== "undefined") {
-    fetch(`/api/orders/${orderId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
-    }).catch(() => {});
+    window.dispatchEvent(new Event("ergochair-orders-change"));
+    window.dispatchEvent(new Event("ergochair-products-change"));
   }
 
   return updatedOrder;
+}
+
+/**
+ * Tra cứu công khai hành trình đơn hàng bằng mã đơn, mã vận đơn hoặc SĐT
+ */
+export async function trackOrder(query: string): Promise<Order | null> {
+  try {
+    const res = await fetch(`/api/orders/track?q=${encodeURIComponent(query.trim())}`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || "Không tìm thấy thông tin đơn hàng.");
+    }
+
+    return await res.json();
+  } catch (error) {
+    console.error("Lỗi trackOrder service:", error);
+    throw error;
+  }
+}
+
+/**
+ * Cập nhật trạng thái thanh toán (Giả lập thanh toán Sandbox)
+ */
+export async function updateOrderPayment(
+  orderId: string,
+  paymentStatus: "paid" | "unpaid" | "refunded",
+  paymentMethod?: string
+): Promise<Order> {
+  const res = await fetch(`/api/orders/${encodeURIComponent(orderId)}/pay`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ paymentStatus, paymentMethod }),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || "Không thể cập nhật thanh toán đơn hàng.");
+  }
+
+  const updated = await res.json();
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("ergochair-orders-change"));
+  }
+
+  return updated;
 }

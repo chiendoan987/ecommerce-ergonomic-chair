@@ -321,11 +321,7 @@ function RegisterForm() {
             </Link>
           </div>
 
-          <div className="auth-guest-link-wrapper">
-            <Link href="/products" className="auth-guest-link">
-              Duyệt xem danh mục sản phẩm (Khách vãng lai) <span>→</span>
-            </Link>
-          </div>
+
         </form>
       </div>
     </div>

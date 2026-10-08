@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useState, useMemo } from "react";
 import { useCart } from "@/components/cart-provider";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { createOrder } from "@/lib/services/order.service";
 import { formatPrice } from "@/lib/utils/format";
-import type { PaymentMethod } from "@/lib/types/order";
+import type { PaymentMethod, ShippingMethod } from "@/lib/types/order";
+import { VIETNAM_PROVINCES } from "@/lib/constants/locations";
 import "./checkout.css";
 
 type DeliveryForm = {
@@ -23,29 +24,33 @@ type DeliveryForm = {
 
 type FormErrors = Partial<Record<keyof DeliveryForm, string>>;
 
-const SHIPPING_FEE = 30000;
 const initialForm: DeliveryForm = {
   fullName: "",
   phone: "",
   email: "",
   address: "",
   city: "Hà Nội",
-  district: "",
+  district: "Quận Cầu Giấy",
   note: "",
 };
 
 function validateForm(form: DeliveryForm) {
   const errors: FormErrors = {};
-  if (!form.fullName.trim()) errors.fullName = "Vui lòng nhập họ và tên.";
-  if (!form.phone.trim()) errors.phone = "Vui lòng nhập số điện thoại.";
-  else {
+  if (!form.fullName.trim()) errors.fullName = "Vui lòng nhập họ và tên người nhận.";
+  if (!form.phone.trim()) {
+    errors.phone = "Vui lòng nhập số điện thoại.";
+  } else {
     const digits = form.phone.replace(/\D/g, "");
-    if (digits.length < 9 || digits.length > 11) errors.phone = "Vui lòng nhập số điện thoại hợp lệ.";
+    if (digits.length < 9 || digits.length > 11) {
+      errors.phone = "Số điện thoại phải từ 9 đến 11 chữ số (VD: 0987654321).";
+    }
   }
-  if (form.email.trim() && !/^\S+@\S+\.\S+$/.test(form.email.trim())) errors.email = "Vui lòng nhập email hợp lệ.";
-  if (!form.address.trim()) errors.address = "Vui lòng nhập địa chỉ.";
-  if (!form.city.trim()) errors.city = "Vui lòng nhập tỉnh/thành phố.";
-  if (!form.district.trim()) errors.district = "Vui lòng nhập quận/huyện.";
+  if (form.email.trim() && !/^\S+@\S+\.\S+$/.test(form.email.trim())) {
+    errors.email = "Vui lòng nhập email hợp lệ (VD: user@example.com).";
+  }
+  if (!form.address.trim()) errors.address = "Vui lòng nhập địa chỉ cụ thể (số nhà, tên đường).";
+  if (!form.city.trim()) errors.city = "Vui lòng chọn tỉnh/thành phố.";
+  if (!form.district.trim()) errors.district = "Vui lòng chọn hoặc nhập quận/huyện.";
   return errors;
 }
 
@@ -58,11 +63,61 @@ export default function CheckoutPage() {
   const [form, setForm] = useState(initialForm);
   const [errors, setErrors] = useState<FormErrors>({});
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cod");
+  const [shippingMethod, setShippingMethod] = useState<ShippingMethod>("standard");
   const [submitting, setSubmitting] = useState(false);
   const [selectedAddressId, setSelectedAddressId] = useState<string>("");
 
-  const shippingFee = items.length > 0 ? SHIPPING_FEE : 0;
+  const currentProvinceData = useMemo(() => {
+    return VIETNAM_PROVINCES.find((p) => p.name === form.city) || VIETNAM_PROVINCES[0];
+  }, [form.city]);
+
+  const isMajorCity = currentProvinceData?.isMajorCity ?? true;
+
+  let shippingFee = 0;
+  if (items.length > 0) {
+    if (shippingMethod === "express") {
+      shippingFee = 60000;
+    } else if (shippingMethod === "assembly") {
+      shippingFee = subtotal >= 5000000 ? 50000 : 120000;
+    } else {
+      shippingFee = subtotal >= 2000000 ? 0 : (isMajorCity ? 30000 : 45000);
+    }
+  }
   const total = subtotal + shippingFee;
+
+  const shippingOptions: Array<{
+    id: ShippingMethod;
+    name: string;
+    carrier: string;
+    desc: string;
+    time: string;
+    fee: number;
+  }> = [
+    {
+      id: "standard",
+      name: "Giao hàng Tiêu chuẩn",
+      carrier: isMajorCity ? "GHTK / Viettel Post" : "Viettel Post Liên tỉnh",
+      desc: "Vận chuyển an toàn, giao tận nhà trên toàn quốc. Đơn từ 2.000.000đ được miễn cước.",
+      time: isMajorCity ? "3 – 4 ngày làm việc" : "4 – 5 ngày làm việc",
+      fee: subtotal >= 2000000 ? 0 : (isMajorCity ? 30000 : 45000),
+    },
+    {
+      id: "express",
+      name: "Giao Hỏa Tốc 2H",
+      carrier: "Ahamove / GrabExpress Nội thành",
+      desc: "Giao nhận siêu tốc trong ngày, đóng gói và ưu tiên xuất kho lập tức.",
+      time: "2 – 4 tiếng (trong ngày)",
+      fee: 60000,
+    },
+    {
+      id: "assembly",
+      name: "Giao & Lắp đặt tận phòng",
+      carrier: "Kỹ thuật viên ErgoCare Logistics",
+      desc: "Kỹ thuật viên giao tận phòng, bóc hộp lắp ráp và hướng dẫn cân chỉnh tư thế chuẩn công thái học.",
+      time: "Hẹn giờ linh hoạt (1 – 2 ngày)",
+      fee: subtotal >= 5000000 ? 50000 : 120000,
+    },
+  ];
 
   const [prevUser, setPrevUser] = useState(user);
 
@@ -74,11 +129,11 @@ export default function CheckoutPage() {
       setForm((prev) => ({
         ...prev,
         fullName: prev.fullName || user.fullName,
-        phone: prev.phone || user.phone,
-        email: prev.email || user.email,
+        phone: prev.phone || user.phone || "",
+        email: prev.email || user.email || "",
         address: prev.address || defaultAddr?.detail || "",
         city: prev.city || defaultAddr?.province || "Hà Nội",
-        district: prev.district || defaultAddr?.district || "",
+        district: prev.district || defaultAddr?.district || "Quận Cầu Giấy",
       }));
       if (defaultAddr?.id) {
         setSelectedAddressId(defaultAddr.id);
@@ -108,28 +163,79 @@ export default function CheckoutPage() {
     setErrors((current) => ({ ...current, [field]: undefined }));
   };
 
+  const handleCityChange = (newCity: string) => {
+    const prov = VIETNAM_PROVINCES.find((p) => p.name === newCity);
+    const defaultDistrict = prov && prov.districts.length > 0 ? prov.districts[0] : "";
+    setForm((prev) => ({
+      ...prev,
+      city: newCity,
+      district: defaultDistrict,
+    }));
+    setErrors((prev) => ({ ...prev, city: undefined, district: undefined }));
+  };
+
+  const handleFillDemoData = () => {
+    setForm({
+      fullName: "Nguyễn Văn An",
+      phone: "0987654321",
+      email: "khachhang.demo@gmail.com",
+      address: "123 Đường Cầu Giấy, Phường Dịch Vọng",
+      city: "Hà Nội",
+      district: "Quận Cầu Giấy",
+      note: "Giao giờ hành chính, gọi trước 15 phút",
+    });
+    setErrors({});
+    toast.success("Đã điền thông tin nhận hàng mẫu để test nhanh!");
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (items.length === 0) return;
+    if (items.length === 0) {
+      toast.warning("Giỏ hàng của bạn đang trống. Vui lòng thêm sản phẩm trước khi thanh toán.");
+      router.push("/products");
+      return;
+    }
 
     const nextErrors = validateForm(form);
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors);
+
+      const errorKeys = Object.keys(nextErrors) as (keyof DeliveryForm)[];
+      const firstField = errorKeys[0];
+      const errorMsg = nextErrors[firstField];
+
+      toast.error(errorMsg || "Vui lòng điền đầy đủ thông tin nhận hàng trước khi thanh toán!");
+
+      // Cuộn mượt đến input đầu tiên bị lỗi và focus
+      setTimeout(() => {
+        const targetInput = document.getElementById(`field-${firstField}`) || document.querySelector(`[name="${firstField}"]`);
+        if (targetInput) {
+          targetInput.scrollIntoView({ behavior: "smooth", block: "center" });
+          (targetInput as HTMLElement).focus();
+        }
+      }, 50);
       return;
     }
 
     setSubmitting(true);
 
     try {
+      const sanitizedPhone = form.phone.replace(/[^\d+]/g, "").trim();
       const order = await createOrder({
         userId: user?.id ?? null,
         items: items.map((i) => ({
-          product: i.product,
+          product: {
+            id: i.product.id,
+            name: i.product.name,
+            price: i.product.price,
+            image: i.product.image || i.product.images?.[0] || "/images/products/cloud-mesh-air.png",
+          },
           quantity: i.quantity,
+          variantId: (i as any).variantId || null,
         })),
         shippingAddress: {
           fullName: form.fullName.trim(),
-          phone: form.phone.trim(),
+          phone: sanitizedPhone || form.phone.trim(),
           email: form.email.trim(),
           detail: form.address.trim(),
           province: form.city.trim(),
@@ -137,13 +243,35 @@ export default function CheckoutPage() {
           note: form.note.trim(),
         },
         paymentMethod,
+        shippingMethod,
+        shippingFee,
       });
 
       clearCart();
-      toast.success("Đặt hàng thành công!");
-      router.push(`/order-success?orderId=${order.id}&total=${total}&method=${paymentMethod}`);
-    } catch {
-      toast.error("Đã xảy ra lỗi khi tạo đơn hàng. Vui lòng thử lại.");
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("ergochair_last_order_id", order.id);
+          localStorage.setItem("ergochair_last_order_phone", form.phone.trim());
+        } catch {}
+      }
+      const carrierParam = encodeURIComponent(order.carrier || "");
+      const trackingParam = encodeURIComponent(order.trackingCode || "");
+      const estParam = encodeURIComponent(order.estimatedDelivery || "");
+
+      if (paymentMethod === "cod") {
+        toast.success("Đặt hàng thành công!");
+        router.push(
+          `/order-success?orderId=${order.id}&total=${order.total}&method=cod&shipping=${shippingMethod}&carrier=${carrierParam}&tracking=${trackingParam}&est=${estParam}&paymentStatus=unpaid`
+        );
+      } else {
+        toast.info("Đang chuyển đến cổng thanh toán trực tuyến...");
+        router.push(
+          `/checkout/payment?orderId=${order.id}&method=${paymentMethod}&total=${order.total}&shipping=${shippingMethod}&carrier=${carrierParam}&tracking=${trackingParam}&est=${estParam}`
+        );
+      }
+    } catch (err: any) {
+      console.error("Lỗi khi tạo đơn hàng:", err);
+      toast.error(err?.message || "Đã xảy ra lỗi khi tạo đơn hàng. Vui lòng thử lại.");
     } finally {
       setSubmitting(false);
     }
@@ -229,16 +357,29 @@ export default function CheckoutPage() {
             </div>
           )}
 
-          <div className="checkout-section-heading">
-            <p className="eyebrow">THÔNG TIN GIAO HÀNG</p>
-            <h2>Nhận hàng ở đâu?</h2>
+          <div className="checkout-section-heading checkout-section-heading-row">
+            <div>
+              <p className="eyebrow">THÔNG TIN GIAO HÀNG</p>
+              <h2>Nhận hàng ở đâu?</h2>
+            </div>
+            <button
+              type="button"
+              className="checkout-demo-autofill-btn"
+              onClick={handleFillDemoData}
+              title="Điền nhanh họ tên, SĐT, địa chỉ mẫu để thử nghiệm đặt hàng & thanh toán"
+            >
+              ⚡ Điền nhanh thông tin mẫu để test
+            </button>
           </div>
 
           <div className="checkout-fields">
             <label>
               Họ và tên *
               <input
+                id="field-fullName"
+                name="fullName"
                 type="text"
+                placeholder="Ví dụ: Nguyễn Văn An"
                 value={form.fullName}
                 onChange={(event) => updateField("fullName", event.target.value)}
                 aria-invalid={Boolean(errors.fullName)}
@@ -250,7 +391,10 @@ export default function CheckoutPage() {
             <label>
               Số điện thoại *
               <input
+                id="field-phone"
+                name="phone"
                 type="tel"
+                placeholder="Ví dụ: 0987654321"
                 value={form.phone}
                 onChange={(event) => updateField("phone", event.target.value)}
                 aria-invalid={Boolean(errors.phone)}
@@ -262,7 +406,10 @@ export default function CheckoutPage() {
             <label>
               Email <span>(để nhận thông báo đơn hàng)</span>
               <input
+                id="field-email"
+                name="email"
                 type="email"
+                placeholder="Ví dụ: an.nguyen@example.com"
                 value={form.email}
                 onChange={(event) => updateField("email", event.target.value)}
                 aria-invalid={Boolean(errors.email)}
@@ -273,7 +420,10 @@ export default function CheckoutPage() {
             <label>
               Địa chỉ chi tiết (Số nhà, tên đường) *
               <input
+                id="field-address"
+                name="address"
                 type="text"
+                placeholder="Ví dụ: 123 Đường Cầu Giấy, Phường Dịch Vọng"
                 value={form.address}
                 onChange={(event) => updateField("address", event.target.value)}
                 aria-invalid={Boolean(errors.address)}
@@ -284,37 +434,123 @@ export default function CheckoutPage() {
 
             <label>
               Tỉnh/Thành phố *
-              <input
-                type="text"
+              <select
+                id="field-city"
+                name="city"
+                className="checkout-select"
                 value={form.city}
-                onChange={(event) => updateField("city", event.target.value)}
+                onChange={(event) => handleCityChange(event.target.value)}
                 aria-invalid={Boolean(errors.city)}
                 required
-              />
+              >
+                {VIETNAM_PROVINCES.map((p) => (
+                  <option key={p.name} value={p.name}>
+                    {p.name} {p.isMajorCity ? "(Trung tâm)" : ""}
+                  </option>
+                ))}
+              </select>
               {errors.city && <small>{errors.city}</small>}
             </label>
 
             <label>
               Quận/Huyện *
-              <input
-                type="text"
-                value={form.district}
-                onChange={(event) => updateField("district", event.target.value)}
-                aria-invalid={Boolean(errors.district)}
-                required
-              />
+              {currentProvinceData.districts.length > 0 ? (
+                <select
+                  id="field-district"
+                  name="district"
+                  className="checkout-select"
+                  value={form.district}
+                  onChange={(event) => updateField("district", event.target.value)}
+                  aria-invalid={Boolean(errors.district)}
+                  required
+                >
+                  {currentProvinceData.districts.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  id="field-district"
+                  name="district"
+                  type="text"
+                  placeholder="Nhập quận/huyện của bạn"
+                  value={form.district}
+                  onChange={(event) => updateField("district", event.target.value)}
+                  aria-invalid={Boolean(errors.district)}
+                  required
+                />
+              )}
               {errors.district && <small>{errors.district}</small>}
             </label>
 
             <label className="checkout-note-field">
               Ghi chú đơn hàng <span>(không bắt buộc)</span>
               <textarea
+                id="field-note"
+                name="note"
                 rows={3}
                 placeholder="Yêu cầu giờ giao, lưu ý vị trí lắp đặt..."
                 value={form.note}
                 onChange={(event) => updateField("note", event.target.value)}
               />
             </label>
+          </div>
+
+          {/* =========================================================================
+              HÌNH THỨC VẬN CHUYỂN (Mô phỏng Đơn vị vận chuyển thật)
+             ========================================================================= */}
+          <div className="checkout-shipping">
+            <div className="checkout-section-heading">
+              <p className="eyebrow">ĐƠN VỊ VẬN CHUYỂN</p>
+              <h2>Chọn hình thức giao hàng</h2>
+            </div>
+
+            {/* Free shipping tracker */}
+            <div className="free-shipping-tracker">
+              <span className="free-shipping-icon">🚛</span>
+              {subtotal >= 2000000 ? (
+                <div>
+                  <strong>Chúc mừng! Đơn hàng đủ điều kiện MIỄN PHÍ giao hàng tiêu chuẩn toàn quốc.</strong>
+                </div>
+              ) : (
+                <div>
+                  Mua thêm <strong>{formatPrice(2000000 - subtotal)}</strong> để nhận <strong>Miễn phí giao hàng tiêu chuẩn toàn quốc</strong>.
+                </div>
+              )}
+            </div>
+
+            <div className="shipping-options-grid">
+              {shippingOptions.map((opt) => (
+                <label
+                  key={opt.id}
+                  className={`shipping-option ${shippingMethod === opt.id ? "active" : ""}`}
+                >
+                  <input
+                    type="radio"
+                    name="shipping"
+                    checked={shippingMethod === opt.id}
+                    onChange={() => setShippingMethod(opt.id)}
+                  />
+                  <div className="shipping-option-content">
+                    <div className="shipping-option-header">
+                      <div className="shipping-option-name">
+                        <strong>{opt.name}</strong>
+                        <span className="shipping-carrier-pill">{opt.carrier}</span>
+                      </div>
+                      <span className={`shipping-option-price ${opt.fee === 0 ? "free" : ""}`}>
+                        {opt.fee === 0 ? "MIỄN PHÍ" : formatPrice(opt.fee)}
+                      </span>
+                    </div>
+                    <p className="shipping-option-desc">{opt.desc}</p>
+                    <span className="shipping-option-time">
+                      ⏱ Thời gian giao: {opt.time}
+                    </span>
+                  </div>
+                </label>
+              ))}
+            </div>
           </div>
 
           <div className="checkout-payment">
@@ -375,8 +611,25 @@ export default function CheckoutPage() {
           </div>
 
           <button className="button button-dark checkout-submit" type="submit" disabled={submitting}>
-            {submitting ? "Đang xử lý đơn hàng..." : "Hoàn tất đặt hàng"}
-            <span>→</span>
+            {submitting ? (
+              <>Đang xử lý đơn hàng...</>
+            ) : paymentMethod === "cod" ? (
+              <>
+                Hoàn tất đặt hàng (Thanh toán COD) <span>→</span>
+              </>
+            ) : paymentMethod === "bank_transfer" ? (
+              <>
+                Tiếp tục quét mã VietQR <span>→</span>
+              </>
+            ) : paymentMethod === "vnpay" ? (
+              <>
+                Tiếp tục qua Cổng VNPAY <span>→</span>
+              </>
+            ) : (
+              <>
+                Tiếp tục qua Ví MoMo <span>→</span>
+              </>
+            )}
           </button>
         </form>
 
@@ -400,8 +653,10 @@ export default function CheckoutPage() {
               <strong>{formatPrice(subtotal)}</strong>
             </div>
             <div>
-              <span>Phí vận chuyển</span>
-              <strong>{formatPrice(shippingFee)}</strong>
+              <span>Phí vận chuyển ({shippingOptions.find((o) => o.id === shippingMethod)?.name})</span>
+              <strong className={shippingFee === 0 ? "text-emerald-600" : ""}>
+                {shippingFee === 0 ? "Miễn phí" : formatPrice(shippingFee)}
+              </strong>
             </div>
             <div className="checkout-total">
               <span>Tổng cộng</span>

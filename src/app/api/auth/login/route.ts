@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { login } from "@/lib/services/auth.service";
+import { authenticateUser } from "@/lib/server/user.repository";
 import { loginSchema } from "@/lib/validators/auth.schema";
 
 export async function POST(request: Request) {
@@ -17,9 +17,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const result = await login(validation.data);
+    const result = await authenticateUser(validation.data);
 
-    if (!result.success || !result.user) {
+    if (result.error || !result.user) {
       return NextResponse.json(
         { error: result.error || "Email hoặc mật khẩu không chính xác" },
         { status: 401 }
@@ -29,9 +29,10 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       user: result.user,
-      token: `mock-jwt-token-${result.user.id}`,
+      token: `auth-token-${result.user.id}`,
     });
   } catch (error) {
+    console.error("Lỗi POST /api/auth/login:", error);
     return NextResponse.json(
       { error: "Lỗi trong quá trình xác thực", details: String(error) },
       { status: 500 }

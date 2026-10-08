@@ -1,48 +1,119 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useRef, useEffect } from "react";
 import { usePathname } from "next/navigation";
+import { formatPrice } from "@/lib/utils/format";
+import type { ChatbotProductSuggestion } from "@/lib/types/chatbot";
 
 interface Message {
   id: string;
   sender: "bot" | "user";
   text: string;
   time: string;
+  engine?: "groq" | "database_fallback";
+  suggestedProducts?: ChatbotProductSuggestion[];
 }
 
 const INITIAL_MESSAGES: Message[] = [
   {
     id: "m-1",
     sender: "bot",
-    text: "Xin chào bạn! 👋 Tôi là **ErgoBot** - Trợ lý thông minh tư vấn ghế công thái học của ErgoChair.",
+    text: "Xin chào bạn! 👋 Tôi là **ErgoBot** - Trợ lý công thái học thông minh của ErgoChair.",
     time: "Vừa xong",
+    engine: "groq",
   },
   {
     id: "m-2",
     sender: "bot",
-    text: "Tôi có thể giúp bạn chọn mẫu ghế chuẩn công thái học theo vóc dáng, hoặc giải đáp chính sách bảo hành 5 năm & giao hàng miễn phí.",
+    text: "Tôi có thể giúp bạn chọn mẫu ghế chuẩn vóc dáng, báo giá theo ngân sách, tra cứu mã đơn hàng hoặc giải đáp chính sách bảo hành 5 năm & giao hàng miễn phí.",
     time: "Vừa xong",
+    engine: "groq",
   },
 ];
 
 const SUGGESTION_CHIPS = [
+  "📦 Đơn hàng đã giao đến đâu?",
+  "🔍 Tra cứu đơn hàng gần nhất",
   "📏 Ghế cho người 1m60 - 1m75",
-  "🛡️ Bảo hành 5 năm gồm những gì?",
-  "🌬️ Ghế nào ngồi mát lưng nhất?",
-  "🚚 Giao hàng & lắp đặt tại nhà",
+  "💰 Ghế công thái học tầm 6 triệu",
+  "🛡️ Chính sách bảo hành bao lâu?",
+  "🚚 Giao hàng & lắp đặt tận phòng",
 ];
+
+/**
+ * Helper định dạng nội dung tin nhắn Markdown cơ bản (bold, link)
+ */
+function FormattedMessageText({ text }: { text: string }) {
+  // Tách dòng để giữ xuống hàng
+  const lines = text.split("\n");
+
+  return (
+    <div className="chat-text-content">
+      {lines.map((line, lineIdx) => {
+        // Tách các đoạn link markdown [Tên](/url) và bold **chữ**
+        const parts = line.split(/(\[.*?\]\(.*?\)|\*\*.*?\*\*)/g);
+
+        return (
+          <p key={lineIdx} style={{ margin: lineIdx > 0 ? "6px 0 0" : 0, lineHeight: 1.55 }}>
+            {parts.map((part, partIdx) => {
+              // 1. Markdown link: [Title](/url)
+              const linkMatch = part.match(/^\[(.*?)\]\((.*?)\)$/);
+              if (linkMatch) {
+                const [, linkText, linkUrl] = linkMatch;
+                return (
+                  <Link
+                    key={partIdx}
+                    href={linkUrl}
+                    style={{ color: "#0d9488", fontWeight: 600, textDecoration: "underline" }}
+                  >
+                    {linkText}
+                  </Link>
+                );
+              }
+
+              // 2. Bold: **text**
+              if (part.startsWith("**") && part.endsWith("**")) {
+                return <strong key={partIdx}>{part.slice(2, -2)}</strong>;
+              }
+
+              return part;
+            })}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
 
 export function FloatingChatbot() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
+  const [currentChips, setCurrentChips] = useState<string[]>(SUGGESTION_CHIPS);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [hasNewBadge, setHasNewBadge] = useState(true);
+  const [activeEngine, setActiveEngine] = useState<"groq" | "database_fallback">("groq");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const idCounterRef = useRef(10);
 
+  // Kiểm tra cấu hình Engine ban đầu
+  useEffect(() => {
+    fetch("/api/chatbot")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.groqConfigured) {
+          setActiveEngine("groq");
+        } else {
+          setActiveEngine("database_fallback");
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Tự động cuộn xuống tin nhắn mới nhất
   useEffect(() => {
     if (isOpen) {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -63,29 +134,31 @@ export function FloatingChatbot() {
     });
   };
 
-  const getSmartReply = (userQuery: string): string => {
-    const q = userQuery.toLowerCase();
-    if (q.includes("1m60") || q.includes("1m75") || q.includes("chiều cao") || q.includes("vóc dáng")) {
-      return "Với chiều cao 1m60 - 1m75, mẫu **ErgoAir Pro** và **ErgoFlex Master** là sự lựa chọn lý tưởng nhất! Ghế có bộ đỡ thắt lưng Lumbar 3D tự động thích ứng với đốt sống L1-L5, kết hợp lưới Wintex đàn hồi cao giúp bạn ngồi 8-10 tiếng không bị mỏi lưng.";
-    }
-    if (q.includes("bảo hành") || q.includes("warranty") || q.includes("đổi trả")) {
-      return "Mọi sản phẩm của ErgoChair đều đi kèm gói **Bảo hành chính hãng 5 năm** tận nơi tại Hà Nội & TP.HCM. Bao gồm: Piston thủy lực Class 4, bộ mâm ngả đa góc, khung nhôm đúc và bánh xe PU. Đặc biệt 1 đổi 1 trong 30 ngày nếu phát sinh lỗi từ nhà sản xuất!";
-    }
-    if (q.includes("mát") || q.includes("lưới") || q.includes("nóng") || q.includes("mồ hôi")) {
-      return "Dòng **ErgoAir Pro** và **ErgoCurve Air** sử dụng 100% công nghệ lưới chịu lực tản nhiệt tổ ong kép từ Hàn Quốc, bề mặt không tích nhiệt, cực kỳ thoáng mát và dễ dàng vệ sinh, rất thích hợp cho khí hậu nhiệt đới.";
-    }
-    if (q.includes("giao hàng") || q.includes("ship") || q.includes("lắp đặt") || q.includes("vận chuyển")) {
-      return "ErgoChair **miễn phí giao hàng toàn quốc** cho đơn từ 2.000.000đ. Tại nội thành Hà Nội & TP.HCM, nhân viên kỹ thuật sẽ giao siêu tốc trong 2 giờ và hỗ trợ cân chỉnh tư thế, lắp ráp hoàn chỉnh tại phòng làm việc của bạn hoàn toàn miễn phí!";
-    }
-    if (q.includes("giá") || q.includes("bao nhiêu") || q.includes("rẻ")) {
-      return "Các mẫu ghế công thái học ErgoChair có mức giá từ **2.890.000đ** (ErgoLite) đến **8.990.000đ** (ErgoLuxe President bọc da Napa). Hiện đang có ưu đãi giảm 10% cho đơn hàng đầu tiên khi áp mã **WELCOME10** tại trang thanh toán!";
-    }
-    return `ErgoBot đã ghi nhận câu hỏi của bạn về: "${userQuery}". Do đây là bản demo AI, chuyên viên tư vấn thật có thể kết nối ngay với bạn qua Hotline miễn phí **1800 6868** hoặc Zalo ở góc trái màn hình nhé! 🪑✨`;
-  };
-
-  const handleSend = (textToSend?: string) => {
-    const text = (textToSend || input).trim();
+  const handleSend = async (textToSend?: string) => {
+    let text = (textToSend || input).trim();
     if (!text || isTyping) return;
+
+    // Trích xuất context đơn hàng gần nhất và tài khoản từ localStorage
+    let lastOrderId: string | null = null;
+    let userId: string | null = null;
+    let userPhone: string | null = null;
+
+    if (typeof window !== "undefined") {
+      lastOrderId = localStorage.getItem("ergochair_last_order_id");
+      try {
+        const rawAuth = localStorage.getItem("ergochair-auth-session");
+        if (rawAuth) {
+          const parsed = JSON.parse(rawAuth);
+          userId = parsed?.id || null;
+          userPhone = parsed?.phone || null;
+        }
+      } catch {}
+    }
+
+    // Nếu người dùng chọn "Tra cứu đơn hàng gần nhất" và có mã đơn trong localStorage
+    if (text.includes("Tra cứu đơn hàng gần nhất") && lastOrderId) {
+      text = `Tra cứu trạng thái đơn hàng mã ${lastOrderId}`;
+    }
 
     idCounterRef.current += 1;
     const currentId = idCounterRef.current;
@@ -103,20 +176,67 @@ export function FloatingChatbot() {
     setInput("");
     setIsTyping(true);
 
-    // Simulate smart bot response
-    setTimeout(() => {
+    try {
+      // Chuẩn bị lịch sử tin nhắn gửi đến Backend
+      const historyPayload = messages.slice(-6).map((m) => ({
+        sender: m.sender,
+        text: m.text,
+      }));
+      historyPayload.push({ sender: "user", text });
+
+      const res = await fetch("/api/chatbot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: text,
+          messages: historyPayload,
+          userContext: {
+            lastOrderId,
+            userId,
+            phone: userPhone,
+          },
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
       idCounterRef.current += 1;
       const botId = idCounterRef.current;
-      const botReplyText = getSmartReply(text);
+
+      if (data.engine) {
+        setActiveEngine(data.engine);
+      }
+      if (data.quickReplies && data.quickReplies.length > 0) {
+        setCurrentChips(data.quickReplies);
+      }
+
       const botMsg: Message = {
         id: `b-${botId}`,
         sender: "bot",
-        text: botReplyText,
+        text: data.message,
         time: currentTime,
+        engine: data.engine,
+        suggestedProducts: data.suggestedProducts || [],
+      };
+
+      setMessages((prev) => [...prev, botMsg]);
+    } catch (err) {
+      console.error("Lỗi gửi tin nhắn chatbot:", err);
+      idCounterRef.current += 1;
+      const botMsg: Message = {
+        id: `b-${idCounterRef.current}`,
+        sender: "bot",
+        text: "Hệ thống đang kết nối cơ sở dữ liệu. Bạn có thể gọi hotline **1800 6868** hoặc thử đặt câu hỏi khác nhé!",
+        time: currentTime,
+        engine: "database_fallback",
       };
       setMessages((prev) => [...prev, botMsg]);
+    } finally {
       setIsTyping(false);
-    }, 700);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -126,7 +246,7 @@ export function FloatingChatbot() {
     }
   };
 
-  // Hide on admin routes
+  // Ẩn chatbot trên trang quản trị admin
   if (pathname?.startsWith("/admin")) {
     return null;
   }
@@ -148,9 +268,12 @@ export function FloatingChatbot() {
             </div>
             <div>
               <h3 className="chat-bot-name">
-                ErgoBot <span className="chat-badge-ai">AI Bot</span>
+                ErgoBot{" "}
+                <span className="chat-badge-ai">
+                  {activeEngine === "groq" ? "⚡ Groq AI" : "🗄️ ErgoCare DB"}
+                </span>
               </h3>
-              <p className="chat-bot-status">● Trực tuyến • Tư vấn 24/7</p>
+              <p className="chat-bot-status">● Trực tuyến • Đồng bộ MySQL 24/7</p>
             </div>
           </div>
 
@@ -158,7 +281,10 @@ export function FloatingChatbot() {
             <button
               type="button"
               className="chat-action-btn"
-              onClick={() => setMessages(INITIAL_MESSAGES)}
+              onClick={() => {
+                setMessages(INITIAL_MESSAGES);
+                setCurrentChips(SUGGESTION_CHIPS);
+              }}
               title="Khởi động lại cuộc trò chuyện"
               aria-label="Xóa làm mới đoạn chat"
             >
@@ -192,15 +318,42 @@ export function FloatingChatbot() {
               {msg.sender === "bot" && (
                 <div className="chat-msg-avatar">🤖</div>
               )}
-              <div className="chat-bubble-container">
+              <div className="chat-bubble-container" style={{ width: "100%", maxWidth: "100%" }}>
                 <div className="chat-message-bubble">
-                  {/* Format simple bold text */}
-                  {msg.text.split(/(\*\*.*?\*\*)/g).map((part, i) => {
-                    if (part.startsWith("**") && part.endsWith("**")) {
-                      return <strong key={i}>{part.slice(2, -2)}</strong>;
-                    }
-                    return part;
-                  })}
+                  <FormattedMessageText text={msg.text} />
+
+                  {/* Render Product Suggestion Mini Cards nếu có */}
+                  {msg.suggestedProducts && msg.suggestedProducts.length > 0 && (
+                    <div className="chat-product-suggestions">
+                      {msg.suggestedProducts.map((prod) => (
+                        <Link
+                          key={prod.id}
+                          href={`/products/${prod.slug}`}
+                          className="chat-product-card"
+                          title={`Xem chi tiết ghế ${prod.name}`}
+                        >
+                          <img
+                            src={prod.image}
+                            alt={prod.name}
+                            className="chat-product-img"
+                            loading="lazy"
+                          />
+                          <div className="chat-product-info">
+                            <h5 className="chat-product-name">{prod.name}</h5>
+                            <div className="chat-product-price-row">
+                              <span className="chat-product-price">
+                                {formatPrice(prod.price)}
+                              </span>
+                              <span className="chat-product-badge">
+                                {prod.inStock ? "Còn hàng" : "Đặt trước"}
+                              </span>
+                            </div>
+                          </div>
+                          <span className="chat-product-btn-arrow">→</span>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <span className="chat-message-time">{msg.time}</span>
               </div>
@@ -212,7 +365,7 @@ export function FloatingChatbot() {
             <div className="chat-message-row bot-row">
               <div className="chat-msg-avatar">🤖</div>
               <div className="chat-bubble-container">
-                <div className="chat-typing-bubble" aria-label="ErgoBot đang nhập câu trả lời">
+                <div className="chat-typing-bubble" aria-label="ErgoBot đang suy nghĩ câu trả lời">
                   <span className="typing-dot" />
                   <span className="typing-dot" />
                   <span className="typing-dot" />
@@ -225,7 +378,7 @@ export function FloatingChatbot() {
           <div className="chat-suggestion-chips">
             <span className="chips-title">Gợi ý câu hỏi nhanh:</span>
             <div className="chips-list">
-              {SUGGESTION_CHIPS.map((chip, idx) => (
+              {currentChips.map((chip, idx) => (
                 <button
                   key={idx}
                   type="button"
@@ -255,7 +408,7 @@ export function FloatingChatbot() {
               ref={inputRef}
               type="text"
               className="chat-input"
-              placeholder="Hỏi ErgoBot bất kỳ điều gì..."
+              placeholder="Hỏi vóc dáng, giá ghế, mã đơn hàng..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -274,7 +427,10 @@ export function FloatingChatbot() {
             </button>
           </form>
           <div className="chat-footnote">
-            ⚡ Trợ lý AI ErgoBot • Dữ liệu mô phỏng
+            ⚡ Trợ lý ErgoBot •
+            <span className="chat-engine-tag">
+              {activeEngine === "groq" ? "Groq Llama 3.3" : "MySQL Grounded"}
+            </span>
           </div>
         </footer>
       </section>

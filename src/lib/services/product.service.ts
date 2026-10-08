@@ -1,5 +1,3 @@
-import { mockProducts } from "../data/mock-products";
-import { normalizeSearchText } from "../search";
 import type {
   Product,
   ProductFilters,
@@ -14,309 +12,221 @@ export const CATEGORIES = [
   "Ghế lãnh đạo",
 ] as const;
 
-const PRODUCTS_STORAGE_KEY = "ergochair-products";
-let inMemoryProducts: Product[] | null = null;
-
-export function getStoredProducts(): Product[] {
-  if (typeof window === "undefined") {
-    if (!inMemoryProducts) {
-      inMemoryProducts = [...mockProducts];
-    }
-    return [...inMemoryProducts];
-  }
-  try {
-    const raw = window.localStorage.getItem(PRODUCTS_STORAGE_KEY);
-    if (!raw) {
-      window.localStorage.setItem(PRODUCTS_STORAGE_KEY, JSON.stringify(mockProducts));
-      return [...mockProducts];
-    }
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : [...mockProducts];
-  } catch {
-    return [...mockProducts];
-  }
-}
-
-function saveProducts(products: Product[]): void {
-  if (typeof window === "undefined") {
-    inMemoryProducts = [...products];
-    return;
-  }
-  try {
-    window.localStorage.setItem(PRODUCTS_STORAGE_KEY, JSON.stringify(products));
-    window.dispatchEvent(new Event("ergochair-products-change"));
-  } catch {
-    // Ignore error
-  }
-}
-
-export async function getProducts(
-  filters: ProductFilters = {}
-): Promise<PaginatedResult<Product>> {
-  let items = getStoredProducts();
-
-  // 1. Filter by category
-  if (filters.category && filters.category !== CATEGORIES[0]) {
-    items = items.filter((p) => p.category === filters.category);
-  }
-
-  // 2. Filter by search keyword
-  if (filters.search && filters.search.trim()) {
-    const query = normalizeSearchText(filters.search);
-    items = items.filter((p) => {
-      const name = normalizeSearchText(p.name);
-      const cat = normalizeSearchText(p.category);
-      const desc = normalizeSearchText(p.description);
-      return name.includes(query) || cat.includes(query) || desc.includes(query);
-    });
-  }
-
-  // 3. Filter by price range
-  if (filters.priceRange && filters.priceRange !== "all") {
-    switch (filters.priceRange) {
-      case "under-5m":
-        items = items.filter((p) => p.price < 5000000);
-        break;
-      case "5m-8m":
-        items = items.filter((p) => p.price >= 5000000 && p.price <= 8000000);
-        break;
-      case "8m-12m":
-        items = items.filter((p) => p.price > 8000000 && p.price <= 12000000);
-        break;
-      case "above-12m":
-        items = items.filter((p) => p.price > 12000000);
-        break;
-    }
-  }
-
-  // 4. Filter by stock status
-  if (filters.availability && filters.availability !== "all") {
-    if (filters.availability === "in-stock") {
-      items = items.filter((p) => p.inStock);
-    } else if (filters.availability === "sold-out") {
-      items = items.filter((p) => !p.inStock);
-    }
-  }
-
-  // 5. Sort items
-  const sort = filters.sort ?? "featured";
-  switch (sort) {
-    case "price-asc":
-      items.sort((a, b) => a.price - b.price);
-      break;
-    case "price-desc":
-      items.sort((a, b) => b.price - a.price);
-      break;
-    case "rating":
-      items.sort((a, b) => {
-        const ratingA = typeof a.rating === "number" ? a.rating : a.rating.average;
-        const ratingB = typeof b.rating === "number" ? b.rating : b.rating.average;
-        return ratingB - ratingA;
-      });
-      break;
-    case "featured":
-    default:
-      // Keep natural priority / order in list
-      break;
-  }
-
-  const total = items.length;
-  const page = filters.page ?? 1;
-  const pageSize = filters.pageSize ?? total; // default return all unless paginated
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const startIndex = (page - 1) * pageSize;
-  const paginatedItems = items.slice(startIndex, startIndex + pageSize);
-
-  return {
-    items: paginatedItems,
-    total,
-    page,
-    pageSize,
-    totalPages,
-  };
-}
-
-export function getProductByIdSync(id: string): Product | null {
-  const products = getStoredProducts();
-  const found = products.find(
-    (item, index) => item.id === id || String(index + 1) === id || item.slug === id
-  );
-  return found ? { ...found } : null;
-}
-
-export async function getProductById(id: string): Promise<Product | null> {
-  return getProductByIdSync(id);
-}
-
-export async function getProductBySlug(slug: string): Promise<Product | null> {
-  const products = getStoredProducts();
-  const found = products.find((item) => item.slug === slug || item.id === slug);
-  return found ? { ...found } : null;
-}
-
-export async function getFeaturedProducts(limit = 4): Promise<Product[]> {
-  const products = getStoredProducts();
-  return products.slice(0, limit);
-}
-
-export async function getRelatedProducts(
-  productId: string,
-  limit = 4
-): Promise<Product[]> {
-  const products = getStoredProducts();
-  const current = products.find((p) => p.id === productId);
-  if (!current) {
-    return products.slice(0, limit);
-  }
-
-  const sameCategory = products.filter(
-    (p) => p.id !== productId && p.category === current.category
-  );
-  const otherCategories = products.filter(
-    (p) => p.id !== productId && p.category !== current.category
-  );
-
-  return [...sameCategory, ...otherCategories].slice(0, limit);
-}
-
-export async function getCategories(): Promise<string[]> {
-  return [...CATEGORIES];
-}
-
-export interface CreateProductInput {
+export type CreateProductInput = {
   name: string;
-  category: Product["category"];
+  category: string;
+  categoryId?: string;
   price: number;
   oldPrice?: number;
-  stockQuantity: number;
-  description: string;
+  compareAtPrice?: number;
+  stockQuantity?: number;
+  stockStatus?: "in_stock" | "out_of_stock" | "pre_order";
+  inStock?: boolean;
+  description?: string;
   image?: string;
+  images?: string[];
+  gallery?: string[];
+  video?: string;
+  specs?: Record<string, string>;
   material?: string;
   color?: string;
   size?: string;
   weight?: string;
   capacity?: string;
   warranty?: string;
-  specs?: Record<string, string>;
+  isFeatured?: boolean;
+  id?: string;
+  slug?: string;
+  rating?: number;
+  reviewCount?: number;
+};
+
+/**
+ * Lấy danh sách sản phẩm từ Backend API (kết nối MySQL Database)
+ */
+export async function getProducts(
+  filters: ProductFilters = {}
+): Promise<PaginatedResult<Product>> {
+  try {
+    const params = new URLSearchParams();
+
+    if (filters.category && filters.category !== CATEGORIES[0] && filters.category !== "all") {
+      params.set("category", filters.category);
+    }
+    if (filters.search && filters.search.trim()) {
+      params.set("search", filters.search.trim());
+    }
+    if (filters.priceRange && filters.priceRange !== "all") {
+      params.set("priceRange", filters.priceRange);
+    }
+    if (filters.availability && filters.availability !== "all") {
+      params.set("availability", filters.availability);
+    }
+    if (filters.sort) {
+      params.set("sort", filters.sort);
+    }
+    if (filters.page) {
+      params.set("page", String(filters.page));
+    }
+    if (filters.pageSize) {
+      params.set("pageSize", String(filters.pageSize));
+    }
+
+    const queryString = params.toString();
+    const url = `/api/products${queryString ? `?${queryString}` : ""}`;
+
+    const res = await fetch(url, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      throw new Error(`Lỗi tải danh sách sản phẩm: HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    return data;
+  } catch (error) {
+    console.error("Lỗi service getProducts:", error);
+    return {
+      items: [],
+      total: 0,
+      page: 1,
+      pageSize: filters.pageSize || 20,
+      totalPages: 0,
+    };
+  }
 }
 
-function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/đ/g, "d")
-    .replace(/[^a-z0-9\s-]/g, "")
-    .trim()
-    .replace(/\s+/g, "-");
+/**
+ * Lấy chi tiết sản phẩm theo ID
+ */
+export async function getProductById(id: string): Promise<Product | null> {
+  try {
+    const res = await fetch(`/api/products/${encodeURIComponent(id)}`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      return null;
+    }
+
+    return await res.json();
+  } catch (error) {
+    console.error(`Lỗi service getProductById (${id}):`, error);
+    return null;
+  }
 }
 
+/**
+ * Lấy chi tiết sản phẩm theo Slug
+ */
+export async function getProductBySlug(slug: string): Promise<Product | null> {
+  return getProductById(slug);
+}
+
+/**
+ * Tạo sản phẩm mới
+ */
 export async function createProduct(input: CreateProductInput): Promise<Product> {
-  const products = getStoredProducts();
-  const baseSlug = slugify(input.name);
-  let slug = baseSlug || `product-${Date.now()}`;
-  let counter = 1;
-  while (products.some((p) => p.slug === slug)) {
-    slug = `${baseSlug}-${counter++}`;
+  const res = await fetch("/api/products", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    let msg = err.error || "Không thể tạo sản phẩm mới.";
+    if (err.details && typeof err.details === "object") {
+      const fieldMsgs = Object.entries(err.details)
+        .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : String(v)}`)
+        .join("; ");
+      if (fieldMsgs) msg += ` (${fieldMsgs})`;
+    }
+    throw new Error(msg);
   }
 
-  const id = `prod-${Date.now()}`;
-  const image = input.image || "/images/products/focus-task.png";
-  const now = new Date().toISOString();
-  const inStock = input.stockQuantity > 0;
+  const created = await res.json();
 
-  const newProduct: Product = {
-    id,
-    slug,
-    name: input.name.trim(),
-    category: input.category,
-    price: input.price,
-    oldPrice: input.oldPrice || Math.round(input.price * 1.15),
-    compareAtPrice: input.oldPrice || Math.round(input.price * 1.15),
-    stockStatus: inStock ? "in_stock" : "out_of_stock",
-    stockQuantity: input.stockQuantity,
-    inStock,
-    image,
-    images: [image],
-    gallery: [image],
-    rating: 5.0,
-    reviewCount: 0,
-    material: input.material || "Lưới cao cấp & khung hợp kim",
-    color: input.color || "Đen tiêu chuẩn",
-    size: input.size || "65 × 65 × 115–125 cm",
-    weight: input.weight || "18 kg",
-    capacity: input.capacity || "135 kg",
-    warranty: input.warranty || "3 năm",
-    description: input.description.trim(),
-    specs: input.specs || {
-      "Chất liệu": input.material || "Lưới cao cấp & khung hợp kim",
-      "Màu sắc": input.color || "Đen tiêu chuẩn",
-      "Kích thước": input.size || "65 × 65 × 115–125 cm",
-      "Trọng lượng": input.weight || "18 kg",
-      "Tải trọng tối đa": input.capacity || "135 kg",
-      "Thời gian bảo hành": input.warranty || "3 năm",
-    },
-    createdAt: now,
-    updatedAt: now,
-  };
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("ergochair-products-change"));
+  }
 
-  const updated = [newProduct, ...products];
-  saveProducts(updated);
-  return newProduct;
+  return created;
 }
 
+/**
+ * Cập nhật sản phẩm
+ */
 export async function updateProduct(
   id: string,
   updates: Partial<Product>
 ): Promise<Product | null> {
-  const products = getStoredProducts();
-  const index = products.findIndex((p) => p.id === id);
-  if (index === -1) return null;
+  const res = await fetch(`/api/products/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(updates),
+  });
 
-  const current = products[index];
-  const stockQuantity = updates.stockQuantity !== undefined ? updates.stockQuantity : current.stockQuantity;
-  const inStock = updates.inStock !== undefined ? updates.inStock : (stockQuantity > 0);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    let msg = err.error || "Không thể cập nhật sản phẩm.";
+    if (err.details && typeof err.details === "object") {
+      const fieldMsgs = Object.entries(err.details)
+        .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : String(v)}`)
+        .join("; ");
+      if (fieldMsgs) msg += ` (${fieldMsgs})`;
+    }
+    throw new Error(msg);
+  }
 
-  const updatedProduct: Product = {
-    ...current,
-    ...updates,
-    inStock,
-    stockStatus: inStock ? "in_stock" : "out_of_stock",
-    stockQuantity,
-    updatedAt: new Date().toISOString(),
-  };
+  const updated = await res.json();
 
-  products[index] = updatedProduct;
-  saveProducts(products);
-  return updatedProduct;
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("ergochair-products-change"));
+  }
+
+  return updated;
 }
 
+/**
+ * Xóa sản phẩm
+ */
 export async function deleteProduct(id: string): Promise<boolean> {
-  const products = getStoredProducts();
-  const filtered = products.filter((p) => p.id !== id);
-  if (filtered.length === products.length) return false;
+  const res = await fetch(`/api/products/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+  });
 
-  saveProducts(filtered);
+  if (!res.ok) return false;
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("ergochair-products-change"));
+  }
+
   return true;
 }
 
+/**
+ * Đổi trạng thái còn hàng / hết hàng
+ */
 export async function toggleProductStock(id: string): Promise<Product | null> {
-  const products = getStoredProducts();
-  const index = products.findIndex((p) => p.id === id);
-  if (index === -1) return null;
+  const res = await fetch(`/api/products/${encodeURIComponent(id)}?action=toggle-stock`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+  });
 
-  const current = products[index];
-  const nextInStock = !current.inStock;
-  const updatedProduct: Product = {
-    ...current,
-    inStock: nextInStock,
-    stockStatus: nextInStock ? "in_stock" : "out_of_stock",
-    stockQuantity: nextInStock ? (current.stockQuantity > 0 ? current.stockQuantity : 10) : 0,
-    updatedAt: new Date().toISOString(),
-  };
+  if (!res.ok) return null;
 
-  products[index] = updatedProduct;
-  saveProducts(products);
-  return updatedProduct;
+  const updated = await res.json();
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("ergochair-products-change"));
+  }
+
+  return updated;
 }
-

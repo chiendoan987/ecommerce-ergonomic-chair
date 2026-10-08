@@ -24,6 +24,7 @@ export interface Product {
   id: string;
   slug: string;
   name: string;
+  categoryId?: string | null;
   category: ProductCategory;
   price: number;
   compareAtPrice?: number;
@@ -40,6 +41,7 @@ export interface Product {
   // Thuộc tính tương thích ngược cho giao diện hiện tại
   image: string;
   gallery: string[];
+  video?: string;
   oldPrice: number;
   inStock: boolean;
   material: string;

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useCart } from "@/components/cart-provider";
 import { useWishlist } from "@/hooks/use-wishlist";
 import { useToast } from "@/hooks/use-toast";
@@ -53,7 +53,12 @@ export function ProductDetailClient({ initialProduct, initialRelated }: ProductD
   }
 
   const isWishlisted = isInWishlist(product.id);
-  const gallery = product.gallery?.length ? product.gallery : [product.image];
+  const [showVideo, setShowVideo] = useState(false);
+  const gallery = useMemo(() => {
+    if (product.images && product.images.length > 0) return product.images;
+    if (product.gallery && product.gallery.length > 0) return [product.image, ...product.gallery];
+    return [product.image];
+  }, [product]);
   const selectedImageIndex = selectedImage.productId === product.id ? selectedImage.index : 0;
   const salePercent = Math.round((1 - product.price / product.oldPrice) * 100);
   const ratingScore = typeof product.rating === "number" ? product.rating : product.rating.average;
@@ -83,31 +88,85 @@ export function ProductDetailClient({ initialProduct, initialRelated }: ProductD
           <div className="detail-gallery" data-reveal="scale">
             <div
               className="detail-main-image"
-              style={{ backgroundImage: `url(${gallery[selectedImageIndex]})` }}
+              style={{
+                backgroundImage: !showVideo ? `url(${gallery[selectedImageIndex] || product.image})` : "none",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                overflow: "hidden"
+              }}
             >
-              <span className={product.inStock ? "stock-badge" : "stock-badge sold-out"}>
-                {product.inStock ? "Còn hàng" : "Tạm hết hàng"}
-              </span>
-              <button
-                type="button"
-                className={`detail-wishlist-toggle ${isWishlisted ? "active" : ""}`}
-                onClick={() => toggleWishlist(product.id)}
-                aria-label={isWishlisted ? "Xóa khỏi danh sách yêu thích" : "Lưu vào danh sách yêu thích"}
-              >
-                {isWishlisted ? "♥" : "♡"}
-              </button>
+              {showVideo && product.video ? (
+                product.video.includes("youtube.com") || product.video.includes("youtu.be") ? (
+                  <iframe
+                    src={product.video.replace("watch?v=", "embed/").replace("youtu.be/", "www.youtube.com/embed/")}
+                    title="Video giới thiệu sản phẩm"
+                    style={{ width: "100%", height: "100%", border: "none" }}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                ) : (
+                  <video
+                    src={product.video}
+                    controls
+                    autoPlay
+                    style={{ width: "100%", height: "100%", objectFit: "contain", background: "#000" }}
+                  />
+                )
+              ) : (
+                <>
+                  <span className={product.inStock ? "stock-badge" : "stock-badge sold-out"}>
+                    {product.inStock ? "Còn hàng" : "Tạm hết hàng"}
+                  </span>
+                  <button
+                    type="button"
+                    className={`detail-wishlist-toggle ${isWishlisted ? "active" : ""}`}
+                    onClick={() => toggleWishlist(product.id)}
+                    aria-label={isWishlisted ? "Xóa khỏi danh sách yêu thích" : "Lưu vào danh sách yêu thích"}
+                  >
+                    {isWishlisted ? "♥" : "♡"}
+                  </button>
+                </>
+              )}
             </div>
             <div className="detail-thumbnails">
               {gallery.map((image, index) => (
                 <button
-                  className={selectedImageIndex === index ? "selected" : ""}
+                  className={selectedImageIndex === index && !showVideo ? "selected" : ""}
                   key={image}
                   type="button"
-                  onClick={() => setSelectedImage({ productId: product.id, index })}
+                  onClick={() => {
+                    setSelectedImage({ productId: product.id, index });
+                    setShowVideo(false);
+                  }}
                   aria-label={`Xem hình ${index + 1}`}
                   style={{ backgroundImage: `url(${image})` }}
                 />
               ))}
+
+              {product.video && (
+                <button
+                  className={showVideo ? "selected" : ""}
+                  type="button"
+                  onClick={() => setShowVideo(true)}
+                  aria-label="Xem video sản phẩm"
+                  style={{
+                    background: "#0f172a",
+                    color: "#fff",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "2px",
+                    fontSize: "0.68rem",
+                    fontWeight: 700,
+                    borderRadius: "4px"
+                  }}
+                >
+                  <span style={{ fontSize: "1.1rem", lineHeight: 1 }}>▶</span>
+                  <span>Video</span>
+                </button>
+              )}
             </div>
           </div>
 

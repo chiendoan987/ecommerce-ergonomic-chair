@@ -84,20 +84,42 @@ export default function AdminDashboardPage() {
     };
   }, [orders, products, users]);
 
-  // Chart data: 6 days trend in Vietnamese
+  // Biểu đồ doanh thu 7 ngày gần nhất dựa trên dữ liệu đơn hàng thực tế trong MySQL
   const chartDays = useMemo(() => {
-    return [
-      { day: "Thứ 2", amount: 6200 },
-      { day: "Thứ 3", amount: 10400 },
-      { day: "Thứ 4", amount: 13800 },
-      { day: "Thứ 5", amount: 9500 },
-      { day: "Thứ 6", amount: 11200 },
-      { day: "Thứ 7", amount: 18600 },
-    ];
-  }, []);
+    const dayNames = ["CN", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
+    const now = new Date();
+    const days = [];
+
+    const validOrders = orders.filter((o) => o.status !== "cancelled");
+    const revenueByDate: Record<string, number> = {};
+    for (const o of validOrders) {
+      try {
+        const dStr = new Date(o.createdAt).toISOString().slice(0, 10);
+        revenueByDate[dStr] = (revenueByDate[dStr] || 0) + o.total;
+      } catch {
+        // Ignore date parse error
+      }
+    }
+
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const dStr = d.toISOString().slice(0, 10);
+      const rev = revenueByDate[dStr] || 0;
+      days.push({
+        day: dayNames[d.getDay()],
+        date: dStr,
+        amount: Math.round(rev / 1000), // đơn vị ngàn đồng
+        formatted: formatPrice(rev),
+      });
+    }
+
+    return days;
+  }, [orders]);
 
   const maxChartVal = useMemo(() => {
-    return Math.max(...chartDays.map((d) => d.amount)) * 1.15;
+    const max = Math.max(...chartDays.map((d) => d.amount), 500);
+    return max * 1.2;
   }, [chartDays]);
 
   const svgPoints = useMemo(() => {
@@ -197,25 +219,25 @@ export default function AdminDashboardPage() {
           <span className="admin-stat-label">Tổng Doanh Thu</span>
           <div className="admin-stat-value">{formatPrice(stats.totalRevenue)}</div>
           <div className="admin-stat-growth positive">
-            <span className="admin-stat-arrow">↑</span> 12% so với tháng trước
+            <span className="admin-stat-arrow">✓</span> Từ {stats.completedOrders} đơn hoàn thành
           </div>
         </div>
 
         {/* Khách Hàng */}
         <div className="admin-stat-card">
           <span className="admin-stat-label">Tổng Khách Hàng</span>
-          <div className="admin-stat-value">{stats.totalUsers || 8600}</div>
+          <div className="admin-stat-value">{stats.totalUsers}</div>
           <div className="admin-stat-growth positive">
-            <span className="admin-stat-arrow">↑</span> 8% tuần này
+            <span className="admin-stat-arrow">✓</span> Tài khoản thực tế
           </div>
         </div>
 
         {/* Đơn Hàng Mới */}
         <div className="admin-stat-card">
-          <span className="admin-stat-label">Đơn Hàng Mới</span>
-          <div className="admin-stat-value">{stats.totalOrders || 480}</div>
+          <span className="admin-stat-label">Tổng Đơn Hàng</span>
+          <div className="admin-stat-value">{stats.totalOrders}</div>
           <div className="admin-stat-growth positive">
-            <span className="admin-stat-arrow">↑</span> 15% tăng trưởng
+            <span className="admin-stat-arrow">✓</span> {stats.pendingOrders} đơn chờ xử lý
           </div>
         </div>
 
@@ -224,7 +246,7 @@ export default function AdminDashboardPage() {
           <span className="admin-stat-label">Sản Phẩm Trong Kho</span>
           <div className="admin-stat-value">{stats.totalProducts} sp</div>
           <div className="admin-stat-growth positive">
-            <span className="admin-stat-arrow">↑</span> {stats.inStockProducts} còn hàng
+            <span className="admin-stat-arrow">✓</span> {stats.inStockProducts} còn hàng
           </div>
         </div>
       </div>
@@ -234,7 +256,7 @@ export default function AdminDashboardPage() {
         <div className="admin-card-header">
           <h2 className="admin-card-title">Tổng Quan Doanh Thu</h2>
           <div className="admin-filter-pill">
-            <span>6 ngày gần nhất</span>
+            <span>7 ngày gần nhất</span>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
               <polyline points="6 9 12 15 18 9" />
             </svg>
@@ -245,10 +267,10 @@ export default function AdminDashboardPage() {
           <div className="admin-chart-wrapper">
             {/* Y-Axis simulated labels */}
             <div className="admin-chart-yaxis">
-              <span>20tr</span>
-              <span>15tr</span>
-              <span>10tr</span>
-              <span>5tr</span>
+              <span>{Math.round((maxChartVal * 1.0) / 1000)}tr</span>
+              <span>{Math.round((maxChartVal * 0.75) / 1000)}tr</span>
+              <span>{Math.round((maxChartVal * 0.5) / 1000)}tr</span>
+              <span>{Math.round((maxChartVal * 0.25) / 1000)}tr</span>
               <span>0tr</span>
             </div>
 

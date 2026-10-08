@@ -1,24 +1,22 @@
 import { NextResponse } from "next/server";
 import {
-  getProductById,
-  getProductBySlug,
-  updateProduct,
-  deleteProduct,
-  toggleProductStock,
-} from "@/lib/services/product.service";
+  getProductByIdOrSlugFromDb,
+  updateProductInDb,
+  deleteProductFromDb,
+  toggleProductStockInDb,
+} from "@/lib/server/product.repository";
 import { updateProductSchema } from "@/lib/validators/product.schema";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
 }
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: Request, context: RouteContext) {
   try {
     const { id } = await context.params;
-    let product = await getProductById(id);
-    if (!product) {
-      product = await getProductBySlug(id);
-    }
+    const product = await getProductByIdOrSlugFromDb(id);
 
     if (!product) {
       return NextResponse.json(
@@ -29,6 +27,7 @@ export async function GET(request: Request, context: RouteContext) {
 
     return NextResponse.json(product);
   } catch (error) {
+    console.error("Lỗi GET /api/products/[id]:", error);
     return NextResponse.json(
       { error: "Lỗi khi lấy thông tin sản phẩm", details: String(error) },
       { status: 500 }
@@ -52,7 +51,7 @@ export async function PUT(request: Request, context: RouteContext) {
       );
     }
 
-    const updated = await updateProduct(id, validation.data);
+    const updated = await updateProductInDb(id, validation.data);
     if (!updated) {
       return NextResponse.json(
         { error: `Không tìm thấy sản phẩm id: ${id}` },
@@ -62,6 +61,7 @@ export async function PUT(request: Request, context: RouteContext) {
 
     return NextResponse.json(updated);
   } catch (error) {
+    console.error("Lỗi PUT /api/products/[id]:", error);
     return NextResponse.json(
       { error: "Không thể cập nhật sản phẩm", details: String(error) },
       { status: 500 }
@@ -72,17 +72,18 @@ export async function PUT(request: Request, context: RouteContext) {
 export async function DELETE(request: Request, context: RouteContext) {
   try {
     const { id } = await context.params;
-    const success = await deleteProduct(id);
+    const success = await deleteProductFromDb(id);
 
     if (!success) {
       return NextResponse.json(
-        { error: `Không tìm thấy sản phẩm id: ${id}` },
+        { error: `Không tìm thấy hoặc không thể xóa sản phẩm id: ${id}` },
         { status: 404 }
       );
     }
 
     return NextResponse.json({ success: true, message: `Đã xóa sản phẩm ${id}` });
   } catch (error) {
+    console.error("Lỗi DELETE /api/products/[id]:", error);
     return NextResponse.json(
       { error: "Lỗi khi xóa sản phẩm", details: String(error) },
       { status: 500 }
@@ -97,7 +98,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     const action = searchParams.get("action");
 
     if (action === "toggle-stock") {
-      const updated = await toggleProductStock(id);
+      const updated = await toggleProductStockInDb(id);
       if (!updated) {
         return NextResponse.json(
           { error: `Không tìm thấy sản phẩm id: ${id}` },
@@ -108,7 +109,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const updated = await updateProduct(id, body);
+    const updated = await updateProductInDb(id, body);
     if (!updated) {
       return NextResponse.json(
         { error: `Không tìm thấy sản phẩm id: ${id}` },
@@ -118,6 +119,7 @@ export async function PATCH(request: Request, context: RouteContext) {
 
     return NextResponse.json(updated);
   } catch (error) {
+    console.error("Lỗi PATCH /api/products/[id]:", error);
     return NextResponse.json(
       { error: "Không thể cập nhật trạng thái sản phẩm", details: String(error) },
       { status: 500 }

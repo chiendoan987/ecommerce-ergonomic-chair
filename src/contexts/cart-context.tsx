@@ -1,7 +1,6 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { getProductByIdSync } from "@/lib/services/product.service";
 import type { Product } from "@/lib/types/product";
 import type { CartItem } from "@/lib/types/cart";
 
@@ -27,11 +26,10 @@ function normalizeCartItems(value: unknown): CartItem[] {
   for (const valueItem of value) {
     if (!valueItem || typeof valueItem !== "object") continue;
 
-    const item = valueItem as { product?: { id?: unknown }; quantity?: unknown };
-    const productId = item.product?.id;
-    const product = typeof productId === "string" ? getProductByIdSync(productId) : undefined;
+    const item = valueItem as { product?: Product; quantity?: unknown };
+    const product = item.product;
     const quantity = item.quantity;
-    if (!product || typeof quantity !== "number" || !Number.isSafeInteger(quantity) || quantity <= 0) continue;
+    if (!product || !product.id || typeof quantity !== "number" || !Number.isSafeInteger(quantity) || quantity <= 0) continue;
 
     const existing = normalizedItems.find(({ product: currentProduct }) => currentProduct.id === product.id);
     if (existing) {

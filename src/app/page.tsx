@@ -75,7 +75,7 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
   };
 
   return (
-    <article className="minimal-product-card" data-reveal="up" data-reveal-delay={String(index * 60)}>
+    <article className="minimal-product-card" data-reveal="up" data-reveal-delay={String((index % 4) * 80)}>
       <div className="product-card-thumb-wrap">
         <Link href={`/products/${product.id}`} className="product-card-image-link">
           <img src={product.image} alt={product.name} loading="lazy" />
@@ -162,11 +162,18 @@ export default function Home() {
 
   useEffect(() => {
     let isMounted = true;
-    getProducts({ pageSize: 16 }).then((res) => {
-      if (isMounted) setAllProducts(res.items);
-    });
+    const loadProducts = () => {
+      getProducts({ pageSize: 16 }).then((res) => {
+        if (isMounted) setAllProducts(res.items);
+      });
+    };
+
+    loadProducts();
+
+    window.addEventListener("ergochair-products-change", loadProducts);
     return () => {
       isMounted = false;
+      window.removeEventListener("ergochair-products-change", loadProducts);
     };
   }, []);
 
@@ -256,9 +263,9 @@ export default function Home() {
         {/* =========================================================================
             2. 4 PILLARS OF TRUST (Clean Features Strip)
            ========================================================================= */}
-        <section className="features-strip-section" aria-label="Cam kết dịch vụ">
+        <section className="features-strip-section" aria-label="Cam kết dịch vụ" data-reveal="fade">
           <div className="features-strip-container">
-            <div className="feature-pillar">
+            <div className="feature-pillar" data-reveal="up" data-reveal-delay="0">
               <div className="feature-icon-bubble">
                 <Icon name="truck" />
               </div>
@@ -268,7 +275,7 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="feature-pillar">
+            <div className="feature-pillar" data-reveal="up" data-reveal-delay="80">
               <div className="feature-icon-bubble">
                 <Icon name="shield" />
               </div>
@@ -278,7 +285,7 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="feature-pillar">
+            <div className="feature-pillar" data-reveal="up" data-reveal-delay="160">
               <div className="feature-icon-bubble">
                 <Icon name="refresh" />
               </div>
@@ -288,7 +295,7 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="feature-pillar">
+            <div className="feature-pillar" data-reveal="up" data-reveal-delay="240">
               <div className="feature-icon-bubble">
                 <Icon name="clock" />
               </div>
@@ -316,7 +323,7 @@ export default function Home() {
 
               {/* Category Filter Pills */}
               <div className="category-filter-pills" role="tablist">
-                {FILTER_TABS.map((tab) => (
+                {FILTER_TABS.map((tab, idx) => (
                   <button
                     key={tab.id}
                     type="button"
@@ -324,6 +331,8 @@ export default function Home() {
                     aria-selected={selectedCategory === tab.id}
                     className={`filter-pill-btn ${selectedCategory === tab.id ? "is-active" : ""}`}
                     onClick={() => setSelectedCategory(tab.id)}
+                    data-reveal="fade"
+                    data-reveal-delay={String(idx * 50)}
                   >
                     {tab.label}
                   </button>
@@ -339,7 +348,7 @@ export default function Home() {
             </div>
 
             {/* View All Button */}
-            <div className="section-footer-cta">
+            <div className="section-footer-cta" data-reveal="up">
               <Link href="/products" className="btn-view-all-products">
                 Xem tất cả sản phẩm
                 <Icon name="arrow" />
@@ -379,26 +388,26 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="benefits-grid-cards" data-reveal="up" data-reveal-delay="100">
-                <div className="benefit-feature-card">
+              <div className="benefits-grid-cards">
+                <div className="benefit-feature-card" data-reveal="up" data-reveal-delay="0">
                   <div className="feature-card-num">01</div>
                   <h4>Hỗ trợ đường cong S-Curve</h4>
                   <p>Bộ đỡ thắt lưng tự động điều chỉnh theo chuyển động của cơ thể, giải phóng áp lực đốt sống L4-L5.</p>
                 </div>
 
-                <div className="benefit-feature-card">
+                <div className="benefit-feature-card" data-reveal="up" data-reveal-delay="80">
                   <div className="feature-card-num">02</div>
                   <h4>Lưới tản nhiệt Wintex</h4>
                   <p>100% sợi polyester đàn hồi cao cấp nhập khẩu Hàn Quốc, không bai dão và thoáng khí suốt ngày dài.</p>
                 </div>
 
-                <div className="benefit-feature-card">
+                <div className="benefit-feature-card" data-reveal="up" data-reveal-delay="160">
                   <div className="feature-card-num">03</div>
                   <h4>Mâm ngả khóa đa góc</h4>
                   <p>Cho phép ngả lưng thư giãn từ 90° đến 135°, khóa vị trí linh hoạt khi nghỉ ngơi trưa tại văn phòng.</p>
                 </div>
 
-                <div className="benefit-feature-card">
+                <div className="benefit-feature-card" data-reveal="up" data-reveal-delay="240">
                   <div className="feature-card-num">04</div>
                   <h4>Bảo hành tận nơi 5 năm</h4>
                   <p>Dịch vụ hậu mãi số 1 Việt Nam với đội ngũ kỹ thuật viên phục vụ tận phòng tại Hà Nội & TP.HCM.</p>
@@ -449,6 +458,7 @@ export default function Home() {
             {/* Nav Column 2 */}
             <div className="footer-col">
               <h4>Hỗ trợ khách hàng</h4>
+              <Link href="/account">Đơn hàng của tôi</Link>
               <Link href="/contact">Vận chuyển & lắp đặt</Link>
               <Link href="/about">Chính sách bảo hành 5 năm</Link>
               <Link href="/contact">Chính sách đổi trả 30 ngày</Link>

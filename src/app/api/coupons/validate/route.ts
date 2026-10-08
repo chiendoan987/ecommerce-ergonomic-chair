@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { validateCoupon } from "@/lib/services/coupon.service";
+import { validateCouponInDb } from "@/lib/server/coupon.repository";
 import { z } from "zod";
 
 const validateCouponBodySchema = z.object({
@@ -22,9 +22,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const result = await validateCoupon(validation.data.code, validation.data.subtotal);
+    const result = await validateCouponInDb(validation.data.code, validation.data.subtotal);
     return NextResponse.json(result);
   } catch (error) {
+    console.error("Lỗi POST /api/coupons/validate:", error);
     return NextResponse.json(
       { error: "Lỗi khi kiểm tra mã giảm giá", details: String(error) },
       { status: 500 }

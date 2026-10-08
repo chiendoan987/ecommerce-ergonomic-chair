@@ -1,28 +1,4 @@
-import { mockReviews } from "../data/mock-reviews";
 import type { CreateReviewDTO, Review, ReviewSummary } from "../types/review";
-
-const STORAGE_KEY = "ergochair-user-reviews";
-
-function getUserReviews(): Review[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveUserReviews(reviews: Review[]): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(reviews));
-  } catch {
-    // Ignore error
-  }
-}
 
 export function getInitials(name: string): string {
   const words = name.trim().split(/\s+/);
@@ -31,34 +7,35 @@ export function getInitials(name: string): string {
   return (words[0][0] + words[words.length - 1][0]).toUpperCase();
 }
 
+/**
+ * Lấy danh sách đánh giá từ MySQL Database qua API
+ */
 export async function getReviews(productId?: string): Promise<Review[]> {
-  if (typeof window !== "undefined") {
-    try {
-      const url = productId ? `/api/reviews?productId=${encodeURIComponent(productId)}` : "/api/reviews";
-      const res = await fetch(url);
-      if (res.ok) {
-        return await res.json();
-      }
-    } catch {
-      // fallback to local stored reviews
+  try {
+    const url = productId
+      ? `/api/reviews?productId=${encodeURIComponent(productId)}`
+      : "/api/reviews";
+
+    const res = await fetch(url, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      return [];
     }
+
+    return await res.json();
+  } catch (error) {
+    console.error("Lỗi getReviews service:", error);
+    return [];
   }
-
-  const userReviews = getUserReviews();
-  const allReviews = [...userReviews, ...mockReviews];
-
-  if (productId) {
-    const filtered = allReviews.filter((r) => r.productId === productId);
-    // If no reviews for this product yet, fallback to general reviews with this productId
-    if (filtered.length === 0) {
-      return mockReviews.slice(0, 3).map((r) => ({ ...r, productId }));
-    }
-    return filtered;
-  }
-
-  return allReviews;
 }
 
+/**
+ * Lấy tổng hợp đánh giá và biểu đồ phân bổ sao từ dữ liệu thực tế
+ */
 export async function getReviewSummary(productId: string): Promise<ReviewSummary> {
   const reviews = await getReviews(productId);
   const totalReviews = reviews.length;
@@ -95,44 +72,26 @@ export async function getReviewSummary(productId: string): Promise<ReviewSummary
   };
 }
 
+/**
+ * Thêm đánh giá mới lưu vào MySQL Database
+ */
 export async function addReview(dto: CreateReviewDTO): Promise<Review> {
-  if (typeof window !== "undefined") {
-    try {
-      const res = await fetch("/api/reviews", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          productId: dto.productId,
-          author: dto.authorName,
-          rating: dto.rating,
-          content: dto.comment,
-        }),
-      });
-      if (res.ok) {
-        const created = await res.json();
-        const userReviews = getUserReviews();
-        saveUserReviews([created, ...userReviews]);
-        return created;
-      }
-    } catch {
-      // fallback to local creation
-    }
+  const res = await fetch("/api/reviews", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      productId: dto.productId,
+      author: dto.authorName,
+      authorRole: dto.authorRole,
+      rating: dto.rating,
+      content: dto.comment,
+    }),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || "Không thể gửi đánh giá.");
   }
 
-  const newReview: Review = {
-    id: `rev-user-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-    productId: dto.productId,
-    authorName: dto.authorName.trim(),
-    authorRole: dto.authorRole?.trim() || "Khách hàng xác thực",
-    rating: Math.min(5, Math.max(1, dto.rating)),
-    comment: dto.comment.trim(),
-    createdAt: new Date().toISOString(),
-    verifiedPurchase: true,
-  };
-
-  const userReviews = getUserReviews();
-  const updated = [newReview, ...userReviews];
-  saveUserReviews(updated);
-
-  return newReview;
+  return await res.json();
 }

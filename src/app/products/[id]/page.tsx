@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getProductById, getRelatedProducts } from "@/lib/services/product.service";
+import {
+  getProductByIdOrSlugFromDb as getProductById,
+  getRelatedProductsFromDb as getRelatedProducts,
+} from "@/lib/server/product.repository";
 import { formatPrice } from "@/lib/utils/format";
 import { ProductDetailClient } from "./product-detail-client";
 

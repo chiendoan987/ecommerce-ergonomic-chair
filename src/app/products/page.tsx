@@ -8,6 +8,7 @@ import { useWishlist } from "@/hooks/use-wishlist";
 import { useToast } from "@/hooks/use-toast";
 import { ProductSearch } from "@/components/product-search";
 import { getProducts } from "@/lib/services/product.service";
+import { getCategories } from "@/lib/services/category.service";
 import { formatPrice } from "@/lib/utils/format";
 import type { Product, SortOption } from "@/lib/types/product";
 import { normalizeSearchText } from "@/lib/search";
@@ -19,7 +20,7 @@ const normalizeCategory = (value: string | null | undefined) => {
   return normalizedValue;
 };
 
-const categories = ["Tất cả loại ghế", "Ghế công thái học", "Ghế văn phòng", "Ghế gaming", "Ghế lãnh đạo"];
+const DEFAULT_CATEGORIES = ["Tất cả loại ghế", "Ghế công thái học", "Ghế văn phòng", "Ghế gaming", "Ghế lãnh đạo"];
 
 const categoryMeta: Record<string, { title: string; emoji: string; description: string }> = {
   "Tất cả loại ghế": {
@@ -133,6 +134,7 @@ function ProductCard({ product, index = 0, onAdded }: { product: Product; index?
 function Filters({ 
   category, 
   setCategory, 
+  categories = DEFAULT_CATEGORIES,
   priceRange, 
   setPriceRange, 
   availability, 
@@ -142,6 +144,7 @@ function Filters({
 }: { 
   category: string; 
   setCategory: (value: string) => void; 
+  categories?: string[];
   priceRange: string; 
   setPriceRange: (value: string) => void; 
   availability: string; 
@@ -246,9 +249,10 @@ function Filters({
 }
 
 function ProductsPageContent() {
+  const [availableCategories, setAvailableCategories] = useState<string[]>(DEFAULT_CATEGORIES);
   const searchParams = useSearchParams();
   const requestedCategory = normalizeCategory(searchParams.get("category"));
-  const initialCategory = categories.includes(requestedCategory ?? "") ? (requestedCategory ?? categories[0]) : categories[0];
+  const initialCategory = requestedCategory && requestedCategory.trim() ? requestedCategory.trim() : "Tất cả loại ghế";
   const initialSearch = searchParams.get("search")?.trim() ?? "";
   const initialPrice = searchParams.get("price") ?? "all";
   const initialStock = searchParams.get("stock") ?? "all";
@@ -270,14 +274,42 @@ function ProductsPageContent() {
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const scrollAnimRef = useRef<number | null>(null);
 
-  // Load products from Service Layer
+  // Load categories dynamically from Database
   useEffect(() => {
     let isMounted = true;
-    getProducts().then((res) => {
-      if (isMounted) setAllProducts(res.items);
-    });
+    const loadCategories = () => {
+      getCategories()
+        .then((cats) => {
+          if (!isMounted || !cats || cats.length === 0) return;
+          const list = Array.from(new Set(["Tất cả loại ghế", ...cats.map((c) => c.name)]));
+          setAvailableCategories(list);
+        })
+        .catch(() => {});
+    };
+
+    loadCategories();
+    window.addEventListener("ergochair-categories-change", loadCategories);
     return () => {
       isMounted = false;
+      window.removeEventListener("ergochair-categories-change", loadCategories);
+    };
+  }, []);
+
+  // Load products from Service Layer (MySQL via API)
+  useEffect(() => {
+    let isMounted = true;
+    const loadProducts = () => {
+      getProducts().then((res) => {
+        if (isMounted) setAllProducts(res.items);
+      });
+    };
+
+    loadProducts();
+
+    window.addEventListener("ergochair-products-change", loadProducts);
+    return () => {
+      isMounted = false;
+      window.removeEventListener("ergochair-products-change", loadProducts);
     };
   }, []);
 
@@ -358,7 +390,7 @@ function ProductsPageContent() {
     if (isInitialMount.current) {
       isInitialMount.current = false;
       const initialCat = normalizeCategory(searchParams.get("category"));
-      if (initialCat && initialCat !== categories[0] && categories.includes(initialCat)) {
+      if (initialCat && initialCat !== "Tất cả loại ghế") {
         scrollToProducts(450);
       }
     }
@@ -380,8 +412,9 @@ function ProductsPageContent() {
 
   // Sync state when URL searchParams changes externally (e.g. Navigation from Header)
   useEffect(() => {
-    const cat = normalizeCategory(searchParams.get("category"));
-    const validCat = categories.includes(cat ?? "") ? (cat ?? categories[0]) : categories[0];
+    const rawCat = searchParams.get("category");
+    const cat = normalizeCategory(rawCat);
+    const validCat = cat && cat.trim() ? cat.trim() : "Tất cả loại ghế";
     const s = searchParams.get("search")?.trim() ?? "";
     const p = searchParams.get("price") ?? "all";
     const st = searchParams.get("stock") ?? "all";
@@ -389,7 +422,7 @@ function ProductsPageContent() {
 
     if (!isInitialMount.current && prevCategoryRef.current !== validCat) {
       prevCategoryRef.current = validCat;
-      if (validCat !== categories[0]) {
+      if (validCat !== "Tất cả loại ghế") {
         scrollToProducts(250);
       }
     }
@@ -409,8 +442,9 @@ function ProductsPageContent() {
   useEffect(() => {
     const handlePopState = () => {
       const params = new URLSearchParams(window.location.search);
-      const cat = normalizeCategory(params.get("category"));
-      const validCat = categories.includes(cat ?? "") ? (cat ?? categories[0]) : categories[0];
+      const rawCat = params.get("category");
+      const cat = normalizeCategory(rawCat);
+      const validCat = cat && cat.trim() ? cat.trim() : "Tất cả loại ghế";
       const s = params.get("search")?.trim() ?? "";
       const p = params.get("price") ?? "all";
       const st = params.get("stock") ?? "all";
@@ -418,7 +452,7 @@ function ProductsPageContent() {
 
       if (prevCategoryRef.current !== validCat) {
         prevCategoryRef.current = validCat;
-        if (validCat !== categories[0]) {
+        if (validCat !== "Tất cả loại ghế") {
           scrollToProducts(250);
         }
       }
@@ -444,7 +478,7 @@ function ProductsPageContent() {
   ) => {
     if (typeof window === "undefined") return;
     const url = new URL(window.location.href);
-    if (newCategory && newCategory !== categories[0]) {
+    if (newCategory && newCategory !== "Tất cả loại ghế") {
       url.searchParams.set("category", newCategory);
     } else {
       url.searchParams.delete("category");
@@ -476,7 +510,7 @@ function ProductsPageContent() {
     prevCategoryRef.current = newCategory;
     setCategory(newCategory);
     updateUrlParams(newCategory, searchKeyword, priceRange, availability, sort);
-    if (newCategory !== categories[0]) {
+    if (newCategory !== "Tất cả loại ghế") {
       scrollToProducts(200);
     }
   };
@@ -502,11 +536,11 @@ function ProductsPageContent() {
   };
 
   const resetFilters = () => { 
-    setCategory(categories[0]);
+    setCategory("Tất cả loại ghế");
     setPriceRange("all"); 
     setAvailability("all");
     setSort("featured");
-    updateUrlParams(categories[0], searchKeyword, "all", "all", "featured");
+    updateUrlParams("Tất cả loại ghế", searchKeyword, "all", "all", "featured");
   };
 
   const clearSearch = () => {
@@ -517,7 +551,9 @@ function ProductsPageContent() {
   const visibleProducts = useMemo(() => {
     const filtered = allProducts.filter((product) => {
       const searchMatches = !normalizedSearch || [product.name, product.category, product.description, product.material, product.color].some((field) => normalizeSearchText(field).includes(normalizedSearch));
-      const categoryMatches = category === categories[0] || product.category === category;
+      const categoryMatches =
+        category === "Tất cả loại ghế" ||
+        product.category.toLowerCase().trim() === category.toLowerCase().trim();
       const priceMatches = priceRange === "all" || (priceRange === "under-6" ? product.price < 6000000 : priceRange === "6-to-10" ? product.price >= 6000000 && product.price <= 10000000 : product.price > 10000000);
       const availabilityMatches = availability === "all" || (availability === "in-stock" ? product.inStock : !product.inStock);
       return searchMatches && categoryMatches && priceMatches && availabilityMatches;
@@ -548,18 +584,18 @@ function ProductsPageContent() {
     return () => document.removeEventListener("mousedown", handlePointerDown);
   }, [categoryDropdownOpen]);
 
-  const categoryDropdownItems = categories.filter(c => c !== categories[0]);
+  const categoryDropdownItems = availableCategories.filter(c => c !== "Tất cả loại ghế");
 
   return <div className="catalog-page catalog-page-premium">
     <header className="catalog-header"><Link className="logo" href="/"><span className="logo-mark">e</span> ErgoChair</Link><nav><Link href="/">Trang chủ</Link><Link scroll={false} className="active" href="/products">Sản phẩm</Link><div ref={categoryDropdownRef} className={`nav-dropdown ${categoryDropdownOpen ? "open" : ""}`} onMouseEnter={() => setCategoryDropdownOpen(true)} onMouseLeave={() => setCategoryDropdownOpen(false)}><button type="button" className="nav-dropdown-toggle" onClick={() => setCategoryDropdownOpen((prev) => !prev)} aria-expanded={categoryDropdownOpen}>Danh mục <span className="dropdown-arrow">▼</span></button><div className="nav-dropdown-menu">{categoryDropdownItems.map((cat) => <button key={cat} type="button" className="nav-dropdown-item" onClick={() => { handleCategoryChange(cat); setCategoryDropdownOpen(false); }}>{cat}</button>)}</div></div><Link href="/#about">Về chúng tôi</Link></nav><div className="catalog-header-actions"><ProductSearch key={searchKeyword} inputId="catalog-product-search-input" onSearch={handleSearchChange} /><Link className="catalog-cart" href="/wishlist" aria-label="Danh sách yêu thích"><span aria-hidden="true" style={{ fontSize: "18px" }}>♥</span>{wishlistCount > 0 && <b key={wishlistCount}>{wishlistCount}</b>}</Link><Link className="catalog-cart" href="/cart" aria-label="Giỏ hàng"><span aria-hidden="true">⌑</span>{itemCount > 0 && <b key={itemCount}>{itemCount}</b>}</Link><Link className="catalog-shop-link" href="/products">Mua sắm</Link></div></header>
     <div className="catalog-breadcrumb" data-reveal="fade" suppressHydrationWarning>
       <Link href="/">Trang chủ</Link>
       <span>/</span>
-      <strong>{searchKeyword ? `Tìm kiếm: “${searchKeyword}”` : (category === categories[0] ? "Sản phẩm" : category)}</strong>
+      <strong>{searchKeyword ? `Tìm kiếm: “${searchKeyword}”` : (category === "Tất cả loại ghế" ? "Sản phẩm" : category)}</strong>
     </div>
     <main id="catalog-products" className="catalog-main catalog-main-premium">
       <div className="catalog-toolbar catalog-toolbar-premium" data-reveal="fade" suppressHydrationWarning><p><strong>{visibleProducts.length}</strong> sản phẩm {searchKeyword && <button className="catalog-clear-search" type="button" onClick={clearSearch}>Xóa tìm kiếm</button>}</p><button className="catalog-filter-toggle" type="button" onClick={() => setFiltersOpen(!filtersOpen)}>Bộ lọc <span>{filtersOpen ? "−" : "+"}</span></button><label>Sắp xếp <select value={sort} onChange={(event) => handleSortChange(event.target.value as SortOption)}><option value="featured">Nổi bật nhất</option><option value="price-asc">Giá thấp đến cao</option><option value="price-desc">Giá cao đến thấp</option><option value="rating">Đánh giá cao nhất</option></select></label></div>
-      <div className={`catalog-layout catalog-layout-premium ${filtersOpen ? "filters-visible" : ""}`}><Filters category={category} setCategory={handleCategoryChange} priceRange={priceRange} setPriceRange={handlePriceRangeChange} availability={availability} setAvailability={handleAvailabilityChange} resetFilters={resetFilters} setFiltersOpen={setFiltersOpen} /><section className="catalog-results catalog-results-premium" aria-live="polite">{visibleProducts.length > 0 ? visibleProducts.map((product, index) => <ProductCard key={product.id} product={product} index={index} />) : <div className="empty-results" data-reveal="scale" suppressHydrationWarning><h2>Không tìm thấy sản phẩm</h2><p>{searchKeyword ? "Hãy thử từ khóa khác hoặc xem toàn bộ sản phẩm." : "Hãy thử thay đổi bộ lọc hoặc khoảng giá."}</p><button className="button button-dark" type="button" onClick={searchKeyword ? clearSearch : resetFilters}>{searchKeyword ? "Xóa tìm kiếm" : "Xóa bộ lọc"} <span>→</span></button>{searchKeyword && <button type="button" className="text-link" onClick={() => { clearSearch(); resetFilters(); }}>Xem tất cả sản phẩm</button>}</div>}</section></div>
+      <div className={`catalog-layout catalog-layout-premium ${filtersOpen ? "filters-visible" : ""}`}><Filters category={category} setCategory={handleCategoryChange} categories={availableCategories} priceRange={priceRange} setPriceRange={handlePriceRangeChange} availability={availability} setAvailability={handleAvailabilityChange} resetFilters={resetFilters} setFiltersOpen={setFiltersOpen} /><section className="catalog-results catalog-results-premium" aria-live="polite">{visibleProducts.length > 0 ? visibleProducts.map((product, index) => <ProductCard key={product.id} product={product} index={index} />) : <div className="empty-results" data-reveal="scale" suppressHydrationWarning><h2>Không tìm thấy sản phẩm</h2><p>{searchKeyword ? "Hãy thử từ khóa khác hoặc xem toàn bộ sản phẩm." : "Hãy thử thay đổi bộ lọc hoặc khoảng giá."}</p><button className="button button-dark" type="button" onClick={searchKeyword ? clearSearch : resetFilters}>{searchKeyword ? "Xóa tìm kiếm" : "Xóa bộ lọc"} <span>→</span></button>{searchKeyword && <button type="button" className="text-link" onClick={() => { clearSearch(); resetFilters(); }}>Xem tất cả sản phẩm</button>}</div>}</section></div>
     </main>
   </div>;
 }

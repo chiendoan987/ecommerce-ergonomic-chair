@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/auth-context";
-import { loginAsAdminMock } from "@/lib/services/auth.service";
+import { loginAsDefaultAdmin } from "@/lib/services/auth.service";
 import "./admin.css";
 
 function AdminIcon({
@@ -14,6 +14,7 @@ function AdminIcon({
     | "dashboard"
     | "home"
     | "products"
+    | "categories"
     | "orders"
     | "customers"
     | "user"
@@ -61,6 +62,14 @@ function AdminIcon({
         <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
         <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
         <line x1="12" y1="22.08" x2="12" y2="12" />
+      </svg>
+    ),
+    categories: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="3" width="7" height="7" rx="1.5" />
+        <rect x="14" y="3" width="7" height="7" rx="1.5" />
+        <rect x="14" y="14" width="7" height="7" rx="1.5" />
+        <rect x="3" y="14" width="7" height="7" rx="1.5" />
       </svg>
     ),
     orders: (
@@ -171,7 +180,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const handleAdminQuickLogin = async () => {
     setIsSwitching(true);
     try {
-      await loginAsAdminMock();
+      await loginAsDefaultAdmin();
       window.location.reload();
     } catch {
       setIsSwitching(false);
@@ -256,6 +265,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const navItems = [
     { href: "/admin", label: "Tổng quan", icon: "home" as const },
     { href: "/admin/products", label: "Sản phẩm", icon: "products" as const },
+    { href: "/admin/categories", label: "Danh mục", icon: "categories" as const },
     { href: "/admin/orders", label: "Đơn hàng", icon: "orders" as const },
     { href: "/admin/customers", label: "Tài khoản người dùng", icon: "customers" as const },
   ];

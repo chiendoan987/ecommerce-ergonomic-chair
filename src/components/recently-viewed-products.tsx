@@ -49,8 +49,13 @@ export function RecentlyViewedProducts({
       </div>
 
       <div className="recently-viewed-grid">
-        {items.map((product) => (
-          <article key={product.id} className="recent-product-card">
+        {items.map((product, index) => (
+          <article
+            key={product.id}
+            className="recent-product-card"
+            data-reveal="up"
+            data-reveal-delay={String((index % 4) * 80)}
+          >
             <Link href={`/products/${product.id}`} className="recent-product-image">
               <img src={product.image} alt={product.name} />
               {!product.inStock && <span className="catalog-sold-out">Tạm hết hàng</span>}

@@ -25,6 +25,23 @@ const PAYMENT_MAP: Record<Order["paymentMethod"], string> = {
   momo: "Ví điện tử MoMo",
 };
 
+const ORDER_STEPS = [
+  { step: 1, label: "Đã đặt hàng" },
+  { step: 2, label: "Đang đóng gói" },
+  { step: 3, label: "Đang giao hàng" },
+  { step: 4, label: "Hoàn tất" },
+];
+
+function getOrderStepIndex(status: Order["status"]): number {
+  switch (status) {
+    case "pending": return 1;
+    case "processing": return 2;
+    case "shipped": return 3;
+    case "completed": return 4;
+    default: return 0;
+  }
+}
+
 export default function AccountPage() {
   const router = useRouter();
   const {
@@ -42,6 +59,7 @@ export default function AccountPage() {
   const [activeTab, setActiveTab] = useState<"orders" | "profile" | "addresses">("orders");
   const [orders, setOrders] = useState<Order[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
+  const [orderStatusFilter, setOrderStatusFilter] = useState<string>("all");
 
   // Profile edit form state
   const [fullName, setFullName] = useState("");
@@ -126,7 +144,7 @@ export default function AccountPage() {
           <h2>Yêu cầu đăng nhập</h2>
           <p>Bạn cần đăng nhập để xem thông tin cá nhân, theo dõi đơn hàng và quản lý sổ địa chỉ.</p>
           <div className="unauth-actions">
-            <Link href="/login?redirect=/account" className="button button-dark">
+            <Link href="/login?redirect=/account" className="button button-mocha">
               Đăng nhập tài khoản <span>→</span>
             </Link>
             <Link href="/products" className="button button-outline">
@@ -249,66 +267,170 @@ export default function AccountPage() {
                 <div className="empty-icon" aria-hidden="true">📦</div>
                 <h3>Bạn chưa có đơn hàng nào</h3>
                 <p>Hãy trải nghiệm các dòng ghế công thái học cao cấp với chính sách bảo hành 5 năm.</p>
-                <Link href="/products" className="button button-dark">
+                <Link href="/products" className="button button-mocha">
                   Khám phá sản phẩm ngay <span>→</span>
                 </Link>
               </div>
             ) : (
-              <div className="orders-list">
-                {orders.map((order) => {
-                  const statusInfo = STATUS_MAP[order.status] || {
-                    label: order.status,
-                    className: "status-pending",
-                  };
-                  return (
-                    <article key={order.id} className="order-history-card">
-                      <div className="order-card-header">
-                        <div className="order-id-date">
-                          <strong>Mã đơn: #{order.id}</strong>
-                          <time>{formatDate(order.createdAt)}</time>
-                        </div>
-                        <span className={`order-status-badge ${statusInfo.className}`}>
-                          {statusInfo.label}
-                        </span>
-                      </div>
+              <>
+                <div className="orders-filter-chips">
+                  {[
+                    { key: "all", label: "Tất cả", count: orders.length },
+                    { key: "pending", label: "Chờ xác nhận", count: orders.filter((o) => o.status === "pending").length },
+                    { key: "processing", label: "Đang chuẩn bị", count: orders.filter((o) => o.status === "processing").length },
+                    { key: "shipped", label: "Đang giao", count: orders.filter((o) => o.status === "shipped").length },
+                    { key: "completed", label: "Hoàn thành", count: orders.filter((o) => o.status === "completed").length },
+                    { key: "cancelled", label: "Đã hủy", count: orders.filter((o) => o.status === "cancelled").length },
+                  ].map((tab) => (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      className={`filter-chip ${orderStatusFilter === tab.key ? "active" : ""}`}
+                      onClick={() => setOrderStatusFilter(tab.key)}
+                    >
+                      {tab.label} {tab.count > 0 && `(${tab.count})`}
+                    </button>
+                  ))}
+                </div>
 
-                      <div className="order-items-list">
-                        {order.items.map((item) => (
-                          <div key={item.id} className="order-item-row">
-                            <img src={item.productImage} alt={item.productName} />
-                            <div className="order-item-details">
-                              <h4>
-                                <Link href={`/products/${item.productId}`}>
-                                  {item.productName}
-                                </Link>
-                              </h4>
-                              <p>Số lượng: {item.quantity}</p>
+                {orders.filter((o) => orderStatusFilter === "all" || o.status === orderStatusFilter).length === 0 ? (
+                  <div className="account-empty-state" style={{ padding: "32px 16px" }}>
+                    <p style={{ color: "#777", fontSize: "14px" }}>
+                      Không tìm thấy đơn hàng nào ở trạng thái này.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="orders-list">
+                    {orders
+                      .filter((o) => orderStatusFilter === "all" || o.status === orderStatusFilter)
+                      .map((order) => {
+                        const statusInfo = STATUS_MAP[order.status] || {
+                          label: order.status,
+                          className: "status-pending",
+                        };
+                        return (
+                          <article key={order.id} className="order-history-card">
+                            <div className="order-card-header">
+                              <div className="order-id-date">
+                                <strong>Mã đơn: #{order.id}</strong>
+                                <time>{formatDate(order.createdAt)}</time>
+                              </div>
+                              <span className={`order-status-badge ${statusInfo.className}`}>
+                                {statusInfo.label}
+                              </span>
                             </div>
-                            <strong className="order-item-price">
-                              {formatPrice(item.price * item.quantity)}
-                            </strong>
-                          </div>
-                        ))}
-                      </div>
 
-                      <div className="order-card-footer">
-                        <div className="order-meta-info">
-                          <p>
-                            <strong>Địa chỉ nhận hàng:</strong> {order.shippingAddress.fullName} – {order.shippingAddress.phone} ({order.shippingAddress.detail}, {order.shippingAddress.district}, {order.shippingAddress.province})
-                          </p>
-                          <p>
-                            <strong>Phương thức:</strong> {PAYMENT_MAP[order.paymentMethod] || order.paymentMethod}
-                          </p>
-                        </div>
-                        <div className="order-total-block">
-                          <span>Tổng thanh toán:</span>
-                          <strong>{formatPrice(order.total)}</strong>
-                        </div>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
+                            {/* Thanh tiến trình trực quan hiển thị ngay lập tức (Không cần tra cứu) */}
+                            {order.status !== "cancelled" && (
+                              <div className="order-card-stepper">
+                                <div className="order-stepper-track">
+                                  {ORDER_STEPS.map((stepItem, idx) => {
+                                    const stepIdx = getOrderStepIndex(order.status);
+                                    const isPassed = stepIdx > stepItem.step || (stepItem.step === 4 && stepIdx === 4);
+                                    const isCurrent = stepIdx === stepItem.step;
+                                    return (
+                                      <div
+                                        key={stepItem.step}
+                                        className={`order-step-node ${isPassed ? "is-passed" : ""} ${isCurrent ? "is-current" : ""}`}
+                                      >
+                                        <div className="node-dot">
+                                          {isPassed ? "✓" : stepItem.step}
+                                        </div>
+                                        <span className="node-label">{stepItem.label}</span>
+                                        {idx < ORDER_STEPS.length - 1 && (
+                                          <div
+                                            className={`node-connector ${stepIdx > stepItem.step ? "is-active" : ""}`}
+                                          />
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                                <div className="order-delivery-status-note">
+                                  <span>
+                                    🚚 Đơn vị: <strong>{order.carrier || "Giao Hàng Tiết Kiệm (GHTK)"}</strong>
+                                    {order.trackingCode && <> • Vận đơn: <strong>{order.trackingCode}</strong></>}
+                                  </span>
+                                  {order.estimatedDelivery && (
+                                    <span>
+                                      📅 Dự kiến nhận: <strong>{formatDate(order.estimatedDelivery)}</strong>
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="order-items-list">
+                              {order.items.map((item) => (
+                                <div key={item.id} className="order-item-row">
+                                  <img src={item.productImage} alt={item.productName} />
+                                  <div className="order-item-details">
+                                    <h4>
+                                      <Link href={`/products/${item.productId}`}>
+                                        {item.productName}
+                                      </Link>
+                                    </h4>
+                                    <p>Số lượng: {item.quantity}</p>
+                                  </div>
+                                  <strong className="order-item-price">
+                                    {formatPrice(item.price * item.quantity)}
+                                  </strong>
+                                </div>
+                              ))}
+                            </div>
+
+                            <div className="order-card-footer">
+                              <div className="order-meta-info">
+                                <p>
+                                  <strong>Địa chỉ nhận hàng:</strong> {order.shippingAddress.fullName} – {order.shippingAddress.phone} ({order.shippingAddress.detail}, {order.shippingAddress.district}, {order.shippingAddress.province})
+                                </p>
+                                <p>
+                                  <strong>Vận chuyển:</strong> {order.carrier || "Giao Hàng Tiết Kiệm (GHTK)"}
+                                  {order.trackingCode && <> • Mã vận đơn: <span style={{ color: "#8b7355", fontWeight: 600 }}>{order.trackingCode}</span></>}
+                                </p>
+                                <p>
+                                  <strong>Thanh toán:</strong> {PAYMENT_MAP[order.paymentMethod] || order.paymentMethod}
+                                  {order.paymentStatus === "paid" ? (
+                                    <span style={{ marginLeft: "8px", color: "#15803d", fontWeight: 600, background: "#f0fdf4", padding: "2px 8px", borderRadius: "12px", border: "1px solid #bbf7d0", fontSize: "11.5px" }}>
+                                      ✓ Đã thanh toán
+                                    </span>
+                                  ) : order.paymentMethod === "cod" ? (
+                                    <span style={{ marginLeft: "8px", color: "#786e63", background: "#f7f5f2", padding: "2px 8px", borderRadius: "12px", border: "1px solid #ede5d8", fontSize: "11.5px" }}>
+                                      Thu tiền khi nhận hàng (COD)
+                                    </span>
+                                  ) : (
+                                    <span style={{ marginLeft: "8px", color: "#b45309", background: "#fef9ee", padding: "2px 8px", borderRadius: "12px", border: "1px solid #fde68a", fontSize: "11.5px" }}>
+                                      ⏳ Chờ thanh toán
+                                    </span>
+                                  )}
+                                </p>
+                              </div>
+                              <div className="order-total-block">
+                                <span>Tổng thanh toán:</span>
+                                <strong>{formatPrice(order.total)}</strong>
+                                {order.paymentStatus !== "paid" && order.paymentMethod !== "cod" && order.status !== "cancelled" && (
+                                  <Link
+                                    href={`/checkout/payment?orderId=${encodeURIComponent(order.id)}&method=${order.paymentMethod}&total=${order.total}`}
+                                    style={{
+                                      display: "inline-block",
+                                      marginTop: "6px",
+                                      fontSize: "12px",
+                                      color: "#8b7355",
+                                      fontWeight: 600,
+                                      textDecoration: "underline",
+                                    }}
+                                  >
+                                    Quét mã thanh toán <span>→</span>
+                                  </Link>
+                                )}
+                              </div>
+                            </div>
+                          </article>
+                        );
+                      })}
+                  </div>
+                )}
+              </>
             )}
           </section>
         )}
@@ -323,7 +445,7 @@ export default function AccountPage() {
               </div>
               <button
                 type="button"
-                className="button button-dark"
+                className="button button-mocha"
                 onClick={() => setIsAddressFormOpen(!isAddressFormOpen)}
               >
                 {isAddressFormOpen ? "Đóng biểu mẫu" : "+ Thêm địa chỉ mới"}
@@ -418,7 +540,7 @@ export default function AccountPage() {
                   </button>
                   <button
                     type="submit"
-                    className="button button-dark"
+                    className="button button-mocha"
                     disabled={isSavingAddress}
                   >
                     {isSavingAddress ? "Đang lưu..." : "Lưu địa chỉ"} <span>→</span>
@@ -519,7 +641,7 @@ export default function AccountPage() {
                 <div className="profile-actions">
                   <button
                     type="submit"
-                    className="button button-dark"
+                    className="button button-mocha"
                     disabled={isSavingProfile}
                   >
                     {isSavingProfile ? "Đang lưu thay đổi..." : "Lưu thay đổi"} <span>→</span>

@@ -7,70 +7,54 @@ generator client {
   provider = "prisma-client-js"
 }
 
-model Product {
-  id             String           @id @default(uuid())
-  slug           String           @unique
-  name           String
-  category       String
-  price          Int
-  oldPrice       Int?
-  compareAtPrice Int?
-  stockStatus    String           @default("in_stock")
-  stockQuantity  Int              @default(0)
-  inStock        Boolean          @default(true)
-  image          String
-  description    String           @db.Text
-  material       String?
-  color          String?
-  size           String?
-  weight         String?
-  capacity       String?
-  warranty       String?
-  rating         Float            @default(5.0)
-  reviewCount    Int              @default(0)
-  variants       ProductVariant[]
-  reviews        Review[]
-  orderItems     OrderItem[]
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
+// =========================================================================
+// 1. NGƯỜI DÙNG & PHÂN QUYỀN (USERS & AUTHENTICATION)
+// =========================================================================
+enum UserRole {
+  customer
+  admin
 }
 
-model ProductVariant {
-  id            String   @id @default(uuid())
-  productId     String
-  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  name          String
-  priceDelta    Int      @default(0)
-  stockQuantity Int      @default(0)
-  imageUrl      String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  @@index([productId])
+enum UserStatus {
+  active
+  blocked
 }
 
 model User {
-  id        String    @id @default(uuid())
-  fullName  String
-  email     String    @unique
-  phone     String?
-  role      String    @default("customer")
-  password  String?
-  addresses Address[]
-  orders    Order[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id            String         @id @default(uuid())
+  fullName      String         @db.VarChar(191)
+  email         String         @unique @db.VarChar(191)
+  phone         String?        @db.VarChar(50)
+  password      String         @db.VarChar(255)
+  avatar        String?        @db.VarChar(500)
+  role          UserRole       @default(customer)
+  status        UserStatus     @default(active)
+  
+  // Quan hệ
+  addresses     Address[]
+  orders        Order[]
+  reviews       Review[]
+  wishlistItems WishlistItem[]
+  cartItems     CartItem[]
+  
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([email])
+  @@index([role])
+  @@index([status])
 }
 
+// Sổ địa chỉ người dùng
 model Address {
   id        String   @id @default(uuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  fullName  String
-  phone     String
-  province  String
-  district  String
-  detail    String
+  fullName  String   @db.VarChar(191)
+  phone     String   @db.VarChar(50)
+  province  String   @db.VarChar(100)
+  district  String   @db.VarChar(100)
+  detail    String   @db.VarChar(255)
   isDefault Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -78,56 +62,269 @@ model Address {
   @@index([userId])
 }
 
+// =========================================================================
+// 2. DANH MỤC & SẢN PHẨM (CATALOG & PRODUCTS)
+// =========================================================================
+enum StockStatus {
+  in_stock
+  out_of_stock
+  pre_order
+}
+
+model Category {
+  id          String    @id @default(uuid())
+  name        String    @unique @db.VarChar(100)
+  slug        String    @unique @db.VarChar(100)
+  description String?   @db.Text
+  image       String?   @db.VarChar(500)
+  sortOrder   Int       @default(0)
+  isActive    Boolean   @default(true)
+  products    Product[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([slug])
+}
+
+model Product {
+  id             String           @id @default(uuid())
+  slug           String           @unique @db.VarChar(150)
+  name           String           @db.VarChar(255)
+  categoryId     String?
+  categoryRef    Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  category       String           @db.VarChar(100)
+  
+  // Giá bán & kho hàng
+  price          Int
+  oldPrice       Int?
+  compareAtPrice Int?
+  stockStatus    StockStatus      @default(in_stock)
+  stockQuantity  Int              @default(0)
+  inStock        Boolean          @default(true)
+  
+  // Hình ảnh
+  image          String           @db.VarChar(500)
+  images         Json?
+  gallery        Json?
+  
+  // Mô tả & thông số kỹ thuật (Specs)
+  description    String           @db.Text
+  specs          Json?
+  
+  // Thuộc tính vật lý
+  material       String?          @db.VarChar(191)
+  color          String?          @db.VarChar(100)
+  size           String?          @db.VarChar(100)
+  weight         String?          @db.VarChar(50)
+  capacity       String?          @db.VarChar(50)
+  warranty       String?          @db.VarChar(100)
+  
+  // Đánh giá & xếp hạng
+  rating         Float            @default(5.0)
+  reviewCount    Int              @default(0)
+  isFeatured     Boolean          @default(false)
+  isActive       Boolean          @default(true)
+  
+  // Quan hệ
+  variants       ProductVariant[]
+  reviews        Review[]
+  orderItems     OrderItem[]
+  wishlistItems  WishlistItem[]
+  cartItems      CartItem[]
+  
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([slug])
+  @@index([category])
+  @@index([price])
+  @@index([inStock])
+  @@index([isFeatured])
+}
+
+// Biến thể sản phẩm
+model ProductVariant {
+  id            String      @id @default(uuid())
+  productId     String
+  product       Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name          String      @db.VarChar(150)
+  sku           String?     @db.VarChar(100)
+  priceDelta    Int         @default(0)
+  stockQuantity Int         @default(0)
+  imageUrl      String?     @db.VarChar(500)
+  orderItems    OrderItem[]
+  cartItems     CartItem[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([productId])
+}
+
+// =========================================================================
+// 3. ĐƠN HÀNG & MÃ KHUYẾN MÃI (ORDERS & COUPONS)
+// =========================================================================
+enum OrderStatus {
+  pending
+  processing
+  shipped
+  completed
+  cancelled
+}
+
+enum PaymentMethod {
+  cod
+  bank_transfer
+  vnpay
+  momo
+}
+
+enum PaymentStatus {
+  unpaid
+  paid
+  refunded
+}
+
 model Order {
-  id              String      @id @default(uuid())
+  id              String        @id @default(uuid())
   userId          String?
-  user            User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
-  status          String      @default("pending")
-  paymentMethod   String      @default("cod")
+  user            User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  status          OrderStatus   @default(pending)
+  paymentMethod   PaymentMethod @default(cod)
+  paymentStatus   PaymentStatus @default(unpaid)
+  
+  // Tiền tệ VNĐ
   subtotal        Int
-  discount        Int         @default(0)
-  shippingFee     Int         @default(30000)
+  discount        Int           @default(0)
+  shippingFee     Int           @default(30000)
   total           Int
-  couponCode      String?
-  recipientName   String
-  recipientPhone  String
-  recipientEmail  String?
-  deliveryAddress String
-  province        String
-  district        String
+  couponCode      String?       @db.VarChar(50)
+  
+  // Thông tin nhận hàng (Snapshot bất biến)
+  recipientName   String        @db.VarChar(191)
+  recipientPhone  String        @db.VarChar(50)
+  recipientEmail  String?       @db.VarChar(191)
+  deliveryAddress String        @db.VarChar(255)
+  province        String        @db.VarChar(100)
+  district        String        @db.VarChar(100)
+  note            String?       @db.Text
+  cancelReason    String?       @db.VarChar(255)
+  
+  // Vận chuyển & Theo dõi hành trình (Shipping & Logistics Simulation)
+  shippingMethod    String?       @default("standard") @db.VarChar(50)
+  carrier           String?       @db.VarChar(100)
+  trackingCode      String?       @db.VarChar(100)
+  estimatedDelivery DateTime?
+  
   items           OrderItem[]
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   @@index([userId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model OrderItem {
-  id           String   @id @default(uuid())
+  id           String          @id @default(uuid())
   orderId      String
-  order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order        Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
   productId    String
-  product      Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
-  productName  String
-  productImage String
+  product      Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
+  productName  String          @db.VarChar(255)
+  productImage String          @db.VarChar(500)
   price        Int
-  quantity     Int      @default(1)
+  quantity     Int             @default(1)
   variantId    String?
-  variantName  String?
-  createdAt    DateTime @default(now())
+  variant      ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  variantName  String?         @db.VarChar(150)
+  createdAt    DateTime        @default(now())
 
   @@index([orderId])
   @@index([productId])
 }
 
+// Mã giảm giá
+model Coupon {
+  id              String    @id @default(uuid())
+  code            String    @unique @db.VarChar(50)
+  description     String    @db.VarChar(255)
+  discountPercent Int?
+  discountAmount  Int?
+  minOrderValue   Int       @default(0)
+  maxDiscount     Int?
+  usageLimit      Int?
+  usedCount       Int       @default(0)
+  isActive        Boolean   @default(true)
+  startDate       DateTime?
+  endDate         DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([code])
+  @@index([isActive])
+}
+
+// =========================================================================
+// 4. ĐÁNH GIÁ, YÊU THÍCH, GIỎ HÀNG, LIÊN HỆ
+// =========================================================================
 model Review {
-  id        String   @id @default(uuid())
-  productId String
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  author    String
-  rating    Int      @default(5)
-  content   String   @db.Text
-  createdAt DateTime @default(now())
+  id               String   @id @default(uuid())
+  productId        String
+  product          Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId           String?
+  user             User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  authorName       String   @db.VarChar(191)
+  authorRole       String?  @db.VarChar(100)
+  rating           Int      @default(5)
+  comment          String   @db.Text
+  verifiedPurchase Boolean  @default(false)
+  isApproved       Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   @@index([productId])
+  @@index([userId])
+}
+
+model WishlistItem {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, productId])
+  @@index([userId])
+  @@index([productId])
+}
+
+model CartItem {
+  id        String          @id @default(uuid())
+  userId    String
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId String?
+  variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  quantity  Int             @default(1)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@unique([userId, productId, variantId])
+  @@index([userId])
+}
+
+model ContactMessage {
+  id        String   @id @default(uuid())
+  fullName  String   @db.VarChar(191)
+  email     String   @db.VarChar(191)
+  phone     String?  @db.VarChar(50)
+  subject   String?  @db.VarChar(255)
+  message   String   @db.Text
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([isRead])
 }

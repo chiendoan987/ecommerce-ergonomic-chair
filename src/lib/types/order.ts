@@ -9,6 +9,20 @@ export type OrderStatus =
 
 export type PaymentMethod = "cod" | "bank_transfer" | "vnpay" | "momo";
 
+export type PaymentStatus = "unpaid" | "paid" | "refunded";
+
+export type ShippingMethod = "standard" | "express" | "assembly";
+
+export interface ShippingMethodOption {
+  id: ShippingMethod;
+  name: string;
+  carrier: string;
+  description: string;
+  estimatedDays: string;
+  baseFee: number;
+  freeThreshold?: number;
+}
+
 export interface Address {
   id?: string;
   fullName: string;
@@ -38,6 +52,13 @@ export interface Order {
   items: OrderItem[];
   shippingAddress: Address;
   paymentMethod: PaymentMethod;
+  paymentStatus: PaymentStatus;
+  transactionId?: string;
+  paidAt?: string;
+  shippingMethod?: ShippingMethod;
+  carrier?: string;
+  trackingCode?: string;
+  estimatedDelivery?: string;
   status: OrderStatus;
   subtotal: number;
   discount: number;
@@ -57,5 +78,7 @@ export interface CreateOrderInput {
   }>;
   shippingAddress: Address;
   paymentMethod: PaymentMethod;
+  shippingMethod?: ShippingMethod;
+  shippingFee?: number;
   couponCode?: string;
 }

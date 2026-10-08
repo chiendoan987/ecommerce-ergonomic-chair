@@ -11,62 +11,80 @@ import {
   CATEGORIES,
   type CreateProductInput,
 } from "@/lib/services/product.service";
+import { getCategories } from "@/lib/services/category.service";
 import type { Product } from "@/lib/types/product";
 import { formatPrice } from "@/lib/utils/format";
 import { useToast } from "@/hooks/use-toast";
 
-// Hàm hỗ trợ nén và tối ưu hóa ảnh tải lên từ thiết bị
-const compressImageFile = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    if (!file.type.startsWith("image/")) {
-      reject(new Error("Vui lòng chọn tệp hình ảnh hợp lệ (PNG, JPG, WEBP, GIF)."));
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error("Lỗi khi đọc file ảnh từ thiết bị."));
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onerror = () => reject(new Error("Không thể xử lý hình ảnh này."));
-      img.onload = () => {
-        try {
-          const canvas = document.createElement("canvas");
-          const MAX_DIMENSION = 1200;
-          let { width, height } = img;
-
-          if (width > height) {
-            if (width > MAX_DIMENSION) {
-              height = Math.round((height * MAX_DIMENSION) / width);
-              width = MAX_DIMENSION;
-            }
-          } else {
-            if (height > MAX_DIMENSION) {
-              width = Math.round((width * MAX_DIMENSION) / height);
-              height = MAX_DIMENSION;
-            }
-          }
-
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext("2d");
-          if (!ctx) {
-            resolve(e.target?.result as string);
-            return;
-          }
-
-          ctx.drawImage(img, 0, 0, width, height);
-          const outputFormat = file.type === "image/png" ? "image/png" : "image/jpeg";
-          const dataUrl = canvas.toDataURL(outputFormat, 0.85);
-          resolve(dataUrl);
-        } catch {
-          resolve(e.target?.result as string);
-        }
-      };
-      img.src = e.target?.result as string;
-    };
-    reader.readAsDataURL(file);
+// Hàm hỗ trợ tải tệp tin (ảnh/video) lên máy chủ lưu trữ an toàn
+const uploadFileToServer = async (file: File): Promise<string> => {
+  const fd = new FormData();
+  fd.append("file", file);
+  const res = await fetch("/api/upload", {
+    method: "POST",
+    body: fd,
   });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Không thể tải tệp lên máy chủ.");
+  }
+  const data = await res.json();
+  return data.url;
 };
+
+// Hỗ trợ xử lý kích thước sản phẩm: Dài, Rộng, Cao
+const cleanDim = (val: string): string => val.replace(/\s*cm\s*$/i, "").trim();
+
+const parseDimensions = (sizeStr: string): { length: string; width: string; height: string } => {
+  if (!sizeStr) return { length: "", width: "", height: "" };
+
+  const clean = sizeStr.replace(/\s*cm\s*$/i, "").trim();
+  const matchNamed = clean.match(/dài[:\s]*([0-9\.\-]+)[^\d]*rộng[:\s]*([0-9\.\-]+)[^\d]*cao[:\s]*([0-9\.\-]+)/i);
+  if (matchNamed) {
+    return {
+      length: cleanDim(matchNamed[1]),
+      width: cleanDim(matchNamed[2]),
+      height: cleanDim(matchNamed[3]),
+    };
+  }
+
+  const parts = clean.split(/\s*[×xX*]\s*/);
+  if (parts.length >= 3) {
+    return {
+      length: cleanDim(parts[0]),
+      width: cleanDim(parts[1]),
+      height: cleanDim(parts.slice(2).join(" × ")),
+    };
+  }
+  if (parts.length === 2) {
+    return {
+      length: cleanDim(parts[0]),
+      width: cleanDim(parts[1]),
+      height: "",
+    };
+  }
+  return { length: "", width: "", height: clean };
+};
+
+const formatDimensions = (length: string, width: string, height: string): string => {
+  const l = cleanDim(length);
+  const w = cleanDim(width);
+  const h = cleanDim(height);
+  if (l && w && h) return `${l} × ${w} × ${h} cm`;
+  if (l && w) return `${l} × ${w} cm`;
+  if (h) return `${h} cm`;
+  if (l) return `${l} cm`;
+  return "";
+};
+
+// 5 vị trí ảnh sản phẩm chuẩn thương mại điện tử
+const IMAGE_SLOTS = [
+  { id: "cover", label: "Ảnh bìa (Chính)", desc: "Mặt trước của ghế", required: true },
+  { id: "img2", label: "Ảnh 2", desc: "Góc chụp khác", required: false },
+  { id: "img3", label: "Ảnh 3", desc: "Góc chụp khác", required: false },
+  { id: "img4", label: "Ảnh 4", desc: "Góc chụp khác", required: false },
+  { id: "img5", label: "Ảnh 5", desc: "Góc chụp khác", required: false },
+];
 
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -80,43 +98,56 @@ export default function AdminProductsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
+  const [deleteConfirmTarget, setDeleteConfirmTarget] = useState<{ id: string; name: string } | null>(null);
 
-  // File Upload State
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [uploadFileName, setUploadFileName] = useState("");
-  const [isProcessingImage, setIsProcessingImage] = useState(false);
+  // Media Upload State
+  const multiFileInputRef = useRef<HTMLInputElement>(null);
+  const singleFileInputRef = useRef<HTMLInputElement>(null);
+  const activeSlotIndexRef = useRef<number>(0);
+  const videoFileInputRef = useRef<HTMLInputElement>(null);
+  const [isProcessingMedia, setIsProcessingMedia] = useState(false);
 
   // Form State
   const [formData, setFormData] = useState<{
     name: string;
-    category: Product["category"];
-    price: number;
-    oldPrice: number;
-    stockQuantity: number;
+    category: string;
+    price: number | string;
+    oldPrice: number | string;
+    stockQuantity: number | string;
     description: string;
     image: string;
+    images: string[];
+    video: string;
     material: string;
     color: string;
-    size: string;
+    sizeLength: string;
+    sizeWidth: string;
+    sizeHeight: string;
     weight: string;
     capacity: string;
     warranty: string;
   }>({
     name: "",
-    category: "Ghế công thái học",
-    price: 5500000,
-    oldPrice: 6500000,
-    stockQuantity: 20,
+    category: "",
+    price: "",
+    oldPrice: "",
+    stockQuantity: "",
     description: "",
     image: "",
-    material: "Lưới cao cấp & khung hợp kim",
-    color: "Đen tiêu chuẩn",
-    size: "65 × 65 × 115–125 cm",
-    weight: "18 kg",
-    capacity: "135 kg",
-    warranty: "3 năm",
+    images: ["", "", "", "", ""],
+    video: "",
+    material: "",
+    color: "",
+    sizeLength: "",
+    sizeWidth: "",
+    sizeHeight: "",
+    weight: "",
+    capacity: "",
+    warranty: "",
   });
+  const [availableCategories, setAvailableCategories] = useState<string[]>(
+    CATEGORIES.filter((c) => c !== "Tất cả loại ghế")
+  );
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
@@ -124,9 +155,15 @@ export default function AdminProductsPage() {
 
     const loadData = async () => {
       try {
-        const res = await getProducts();
+        const [res, cats] = await Promise.all([
+          getProducts(),
+          getCategories().catch(() => []),
+        ]);
         if (!isMounted) return;
         setProducts(res.items);
+        if (cats && cats.length > 0) {
+          setAvailableCategories(cats.map((c) => c.name));
+        }
         setIsLoading(false);
       } catch {
         if (isMounted) setIsLoading(false);
@@ -140,9 +177,11 @@ export default function AdminProductsPage() {
     };
 
     window.addEventListener("ergochair-products-change", handleProductsChange);
+    window.addEventListener("ergochair-categories-change", handleProductsChange);
     return () => {
       isMounted = false;
       window.removeEventListener("ergochair-products-change", handleProductsChange);
+      window.removeEventListener("ergochair-categories-change", handleProductsChange);
     };
   }, [refreshKey]);
 
@@ -173,28 +212,43 @@ export default function AdminProductsPage() {
 
   const handleOpenCreateModal = () => {
     setEditingProduct(null);
-    setUploadFileName("");
     setFormData({
       name: "",
-      category: "Ghế công thái học",
-      price: 5500000,
-      oldPrice: 6500000,
-      stockQuantity: 20,
+      category: "",
+      price: "",
+      oldPrice: "",
+      stockQuantity: "",
       description: "",
       image: "",
-      material: "Lưới cao cấp & khung hợp kim",
-      color: "Đen tiêu chuẩn",
-      size: "65 × 65 × 115–125 cm",
-      weight: "18 kg",
-      capacity: "135 kg",
-      warranty: "3 năm",
+      images: ["", "", "", "", ""],
+      video: "",
+      material: "",
+      color: "",
+      sizeLength: "",
+      sizeWidth: "",
+      sizeHeight: "",
+      weight: "",
+      capacity: "",
+      warranty: "",
     });
     setIsModalOpen(true);
   };
 
   const handleOpenEditModal = (product: Product) => {
     setEditingProduct(product);
-    setUploadFileName(product.name ? `Ảnh hiện tại: ${product.name}` : "Ảnh sản phẩm");
+    const dims = parseDimensions(product.size || "");
+    const rawImages = Array.isArray(product.images) && product.images.length > 0
+      ? product.images
+      : [product.image, ...(product.gallery || [])].filter(Boolean);
+    const slotImages = ["", "", "", "", ""];
+    for (let i = 0; i < 5; i++) {
+      slotImages[i] = rawImages[i] || "";
+    }
+    if (!slotImages[0] && product.image) {
+      slotImages[0] = product.image;
+    }
+    const productVideo = product.video || (product.specs as any)?.["video"] || (product.specs as any)?.["Video sản phẩm"] || "";
+
     setFormData({
       name: product.name,
       category: product.category,
@@ -202,10 +256,14 @@ export default function AdminProductsPage() {
       oldPrice: product.oldPrice || product.price,
       stockQuantity: product.stockQuantity,
       description: product.description,
-      image: product.image,
+      image: slotImages[0],
+      images: slotImages,
+      video: productVideo,
       material: product.material,
       color: product.color,
-      size: product.size,
+      sizeLength: dims.length,
+      sizeWidth: dims.width,
+      sizeHeight: dims.height,
       weight: product.weight,
       capacity: product.capacity,
       warranty: product.warranty,
@@ -213,116 +271,195 @@ export default function AdminProductsPage() {
     setIsModalOpen(true);
   };
 
-  const handleFileProcess = async (file: File) => {
-    if (!file.type.startsWith("image/")) {
-      toast.error("Vui lòng chọn tệp hình ảnh hợp lệ (PNG, JPG, WEBP, GIF).");
-      return;
-    }
-    if (file.size > 20 * 1024 * 1024) {
-      toast.error("Kích thước tệp quá lớn (tối đa 20MB).");
-      return;
-    }
-
-    setIsProcessingImage(true);
-    try {
-      const dataUrl = await compressImageFile(file);
-      setFormData((prev) => ({ ...prev, image: dataUrl }));
-      setUploadFileName(file.name);
-      toast.success(`Đã chọn ảnh "${file.name}" thành công!`);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Không thể xử lý hình ảnh.";
-      toast.error(message);
-    } finally {
-      setIsProcessingImage(false);
-    }
-  };
-
-  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Upload ảnh cho 1 vị trí cụ thể lên máy chủ
+  const handleSingleSlotUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      handleFileProcess(file);
+    if (!file) return;
+    const slotIdx = activeSlotIndexRef.current;
+    setIsProcessingMedia(true);
+    toast.info(`Đang tải ảnh "${file.name}" lên hệ thống...`);
+    try {
+      const url = await uploadFileToServer(file);
+      setFormData((prev) => {
+        const next = [...prev.images];
+        next[slotIdx] = url;
+        return { ...prev, images: next, image: next[0] || "" };
+      });
+      toast.success(`Đã tải ảnh cho "${IMAGE_SLOTS[slotIdx]?.label || slotIdx + 1}" thành công!`);
+    } catch (err: any) {
+      toast.error(err.message || "Không thể tải hình ảnh.");
+    } finally {
+      setIsProcessingMedia(false);
+      e.target.value = "";
     }
-    e.target.value = "";
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
+  // Tải nhanh nhiều ảnh cùng lúc từ thiết bị lên máy chủ
+  const handleMultiImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    setIsProcessingMedia(true);
+    toast.info(`Đang tải ${Math.min(files.length, 5)} ảnh lên hệ thống...`);
+    try {
+      const uploaded = await Promise.all(
+        files.slice(0, 5).map((f) => uploadFileToServer(f))
+      );
+      setFormData((prev) => {
+        const next = [...prev.images];
+        let fileIdx = 0;
+        // Điền vào các ô còn trống, ưu tiên ảnh bìa nếu đang trống
+        for (let i = 0; i < 5 && fileIdx < uploaded.length; i++) {
+          if (!next[i] || (fileIdx === 0 && !next[0])) {
+            next[i] = uploaded[fileIdx++];
+          }
+        }
+        for (let i = 0; i < 5 && fileIdx < uploaded.length; i++) {
+          next[i] = uploaded[fileIdx++];
+        }
+        return { ...prev, images: next, image: next[0] || "" };
+      });
+      toast.success(`Đã tải thành công ${Math.min(files.length, 5)} ảnh lên hệ thống!`);
+    } catch (err: any) {
+      toast.error(err.message || "Lỗi khi tải nhiều ảnh.");
+    } finally {
+      setIsProcessingMedia(false);
+      e.target.value = "";
+    }
   };
 
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
+  const handleUpdateSlotUrl = (index: number, url: string) => {
+    setFormData((prev) => {
+      const next = [...prev.images];
+      next[index] = url;
+      return { ...prev, images: next, image: next[0] || "" };
+    });
   };
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) {
-      handleFileProcess(file);
+  const handleRemoveSlotImage = (index: number) => {
+    setFormData((prev) => {
+      const next = [...prev.images];
+      next[index] = "";
+      return { ...prev, images: next, image: next[0] || "" };
+    });
+  };
+
+  // Tải lên tệp Video sản phẩm lên máy chủ
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("video/")) {
+      toast.error("Vui lòng chọn tệp video hợp lệ (.mp4, .webm, .mov).");
+      return;
+    }
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error("Kích thước video tối đa 50MB.");
+      return;
+    }
+    setIsProcessingMedia(true);
+    toast.info(`Đang tải video "${file.name}" lên máy chủ...`);
+    try {
+      const url = await uploadFileToServer(file);
+      setFormData((prev) => ({ ...prev, video: url }));
+      toast.success(`Đã tải video "${file.name}" thành công!`);
+    } catch (err: any) {
+      toast.error(err.message || "Không thể tải video lên máy chủ.");
+    } finally {
+      setIsProcessingMedia(false);
+      e.target.value = "";
     }
   };
 
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name.trim()) {
+    const name = formData.name.trim();
+    if (!name) {
       toast.error("Vui lòng nhập tên sản phẩm.");
       return;
     }
-    if (formData.price <= 0) {
+    const category = formData.category.trim();
+    if (!category) {
+      toast.error("Vui lòng chọn hoặc nhập danh mục cho sản phẩm.");
+      return;
+    }
+    const priceNum = Math.round(Number(formData.price));
+    if (isNaN(priceNum) || priceNum <= 0) {
       toast.error("Giá bán phải lớn hơn 0đ.");
       return;
     }
-    if (!formData.image || !formData.image.trim()) {
-      toast.error("Vui lòng chọn hoặc tải lên ảnh sản phẩm từ thiết bị của bạn.");
-      return;
+
+    let coverImage = (formData.images[0] || formData.image || "").trim();
+    if (!coverImage) {
+      coverImage = "/images/products/focus-task.png";
     }
+
+    const validImages = formData.images
+      .map((img) => img.trim())
+      .filter((img) => Boolean(img));
+    if (validImages.length === 0) {
+      validImages.push(coverImage);
+    }
+    const galleryImages = validImages.slice(1);
+    const productVideo = formData.video?.trim() || undefined;
+
+    const oldPriceNum = formData.oldPrice !== "" ? Math.round(Number(formData.oldPrice)) : priceNum;
+    const stockNum = formData.stockQuantity !== "" ? Math.max(0, Math.floor(Number(formData.stockQuantity))) : 0;
+    const formattedSize = formatDimensions(formData.sizeLength, formData.sizeWidth, formData.sizeHeight);
+    const desc = formData.description?.trim();
+    const finalDesc = desc && desc.length >= 5 ? desc : `Sản phẩm ${name} cao cấp từ ErgoChair`;
 
     try {
       if (editingProduct) {
         await updateProduct(editingProduct.id, {
-          name: formData.name,
-          category: formData.category,
-          price: Number(formData.price),
-          oldPrice: Number(formData.oldPrice),
-          compareAtPrice: Number(formData.oldPrice),
-          stockQuantity: Number(formData.stockQuantity),
-          inStock: Number(formData.stockQuantity) > 0,
-          description: formData.description,
-          image: formData.image,
-          images: [formData.image],
-          material: formData.material,
-          color: formData.color,
-          size: formData.size,
-          weight: formData.weight,
-          capacity: formData.capacity,
-          warranty: formData.warranty,
+          name,
+          category,
+          price: priceNum,
+          oldPrice: oldPriceNum,
+          compareAtPrice: oldPriceNum,
+          stockQuantity: stockNum,
+          inStock: stockNum > 0,
+          description: finalDesc,
+          image: coverImage,
+          images: validImages,
+          gallery: galleryImages,
+          video: productVideo,
+          material: formData.material.trim(),
+          color: formData.color.trim(),
+          size: formattedSize,
+          weight: formData.weight.trim(),
+          capacity: formData.capacity.trim(),
+          warranty: formData.warranty.trim() || "3 năm",
         });
-        toast.success(`Cập nhật "${formData.name}" thành công!`);
+        toast.success(`Cập nhật "${name}" thành công!`);
       } else {
         const input: CreateProductInput = {
-          name: formData.name,
-          category: formData.category,
-          price: Number(formData.price),
-          oldPrice: Number(formData.oldPrice),
-          stockQuantity: Number(formData.stockQuantity),
-          description: formData.description || `Sản phẩm ${formData.name} cao cấp từ ErgoChair`,
-          image: formData.image,
-          material: formData.material,
-          color: formData.color,
-          size: formData.size,
-          weight: formData.weight,
-          capacity: formData.capacity,
-          warranty: formData.warranty,
+          name,
+          category,
+          price: priceNum,
+          oldPrice: oldPriceNum,
+          stockQuantity: stockNum,
+          description: finalDesc,
+          image: coverImage,
+          images: validImages,
+          gallery: galleryImages,
+          video: productVideo,
+          material: formData.material.trim(),
+          color: formData.color.trim(),
+          size: formattedSize,
+          weight: formData.weight.trim(),
+          capacity: formData.capacity.trim(),
+          warranty: formData.warranty.trim() || "3 năm",
         };
         await createProduct(input);
-        toast.success(`Đã thêm sản phẩm mới "${formData.name}" thành công!`);
+        toast.success(`Đã thêm sản phẩm mới "${name}" thành công!`);
       }
       setIsModalOpen(false);
       setRefreshKey((k) => k + 1);
-    } catch {
-      toast.error("Có lỗi xảy ra khi lưu sản phẩm.");
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("ergochair-categories-change"));
+      }
+    } catch (err: any) {
+      console.error("Lỗi khi lưu sản phẩm:", err);
+      toast.error(err?.message || "Có lỗi xảy ra khi lưu sản phẩm.");
     }
   };
 
@@ -338,20 +475,31 @@ export default function AdminProductsPage() {
     }
   };
 
-  const handleDeleteProduct = async (id: string, name: string) => {
-    if (confirm(`Bạn có chắc chắn muốn xóa sản phẩm "${name}" khỏi hệ thống?`)) {
-      setDeletingProductId(id);
-      try {
-        const ok = await deleteProduct(id);
-        if (ok) {
-          toast.success(`Đã xóa sản phẩm "${name}" thành công.`);
-          setRefreshKey((k) => k + 1);
+  const handleDeleteProduct = (id: string, name: string) => {
+    setDeleteConfirmTarget({ id, name });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirmTarget) return;
+    const { id, name } = deleteConfirmTarget;
+    setDeletingProductId(id);
+    try {
+      const ok = await deleteProduct(id);
+      if (ok) {
+        toast.success(`Đã xóa sản phẩm "${name}" thành công.`);
+        setProducts((prev) => prev.filter((p) => p.id !== id));
+        setRefreshKey((k) => k + 1);
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("ergochair-categories-change"));
         }
-      } catch {
-        toast.error("Lỗi khi xóa sản phẩm.");
-      } finally {
-        setDeletingProductId(null);
+        setDeleteConfirmTarget(null);
+      } else {
+        toast.error(`Không thể xóa sản phẩm "${name}". Vui lòng thử lại.`);
       }
+    } catch {
+      toast.error("Lỗi khi kết nối máy chủ để xóa sản phẩm.");
+    } finally {
+      setDeletingProductId(null);
     }
   };
 
@@ -387,7 +535,7 @@ export default function AdminProductsPage() {
             onChange={(e) => setSelectedCategory(e.target.value)}
           >
             <option value="all">Tất cả danh mục ({products.length})</option>
-            {CATEGORIES.filter((c) => c !== "Tất cả loại ghế").map((c) => (
+            {availableCategories.map((c) => (
               <option key={c} value={c}>{c}</option>
             ))}
           </select>
@@ -557,7 +705,7 @@ export default function AdminProductsPage() {
       {/* Modal Add / Edit Product */}
       {isModalOpen && (
         <div className="admin-modal-overlay" onClick={() => setIsModalOpen(false)}>
-          <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="admin-modal" style={{ maxWidth: 880 }} onClick={(e) => e.stopPropagation()}>
             <div className="admin-modal-header">
               <h3 className="admin-modal-title">
                 {editingProduct ? `Chỉnh Sửa: ${editingProduct.name}` : "Thêm Sản Phẩm Mới"}
@@ -591,15 +739,20 @@ export default function AdminProductsPage() {
                   {/* Danh mục */}
                   <div className="admin-form-group">
                     <label className="admin-form-label">Danh mục *</label>
-                    <select
+                    <input
+                      type="text"
                       className="admin-input"
+                      required
+                      list="admin-categories-datalist"
+                      placeholder="VD: Ghế công thái học"
                       value={formData.category}
                       onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    >
-                      {CATEGORIES.filter((c) => c !== "Tất cả loại ghế").map((c) => (
-                        <option key={c} value={c}>{c}</option>
+                    />
+                    <datalist id="admin-categories-datalist">
+                      {availableCategories.map((c) => (
+                        <option key={c} value={c} />
                       ))}
-                    </select>
+                    </datalist>
                   </div>
 
                   {/* Số lượng tồn kho */}
@@ -610,8 +763,9 @@ export default function AdminProductsPage() {
                       min="0"
                       className="admin-input"
                       required
+                      placeholder="VD: 20"
                       value={formData.stockQuantity}
-                      onChange={(e) => setFormData({ ...formData, stockQuantity: Number(e.target.value) })}
+                      onChange={(e) => setFormData({ ...formData, stockQuantity: e.target.value })}
                     />
                   </div>
 
@@ -620,12 +774,13 @@ export default function AdminProductsPage() {
                     <label className="admin-form-label">Giá bán (VND) *</label>
                     <input
                       type="number"
-                      min="1000"
-                      step="10000"
+                      min="0"
+                      step="any"
                       className="admin-input"
                       required
+                      placeholder="VD: 5500000"
                       value={formData.price}
-                      onChange={(e) => setFormData({ ...formData, price: Number(e.target.value) })}
+                      onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                     />
                   </div>
 
@@ -635,133 +790,290 @@ export default function AdminProductsPage() {
                     <input
                       type="number"
                       min="0"
-                      step="10000"
+                      step="any"
                       className="admin-input"
+                      placeholder="VD: 6500000"
                       value={formData.oldPrice}
-                      onChange={(e) => setFormData({ ...formData, oldPrice: Number(e.target.value) })}
+                      onChange={(e) => setFormData({ ...formData, oldPrice: e.target.value })}
                     />
                   </div>
 
-                  {/* Tải ảnh từ thiết bị */}
-                  <div className="admin-form-group admin-form-full">
-                    <label className="admin-form-label">
-                      Hình ảnh sản phẩm *{" "}
-                      <span style={{ color: "#78716C", fontWeight: "normal", fontSize: "0.85rem" }}>
-                        (Chọn tệp ảnh từ máy tính hoặc điện thoại của bạn)
-                      </span>
-                    </label>
+                  {/* Phần Hình ảnh (5 ảnh) & Video sản phẩm (1 video) */}
+                  <div className="admin-form-group admin-form-full" style={{ marginTop: "0.5rem" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "0.6rem", flexWrap: "wrap", gap: "0.5rem" }}>
+                      <div>
+                        <label className="admin-form-label" style={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b", margin: 0 }}>
+                          Hình ảnh sản phẩm (Tối đa 5 ảnh) <span style={{ color: "#ef4444" }}>*</span>
+                        </label>
+                        <div style={{ fontSize: "0.76rem", color: "#64748b", marginTop: 2 }}>
+                          Gồm 1 ảnh bìa chính và 4 ảnh phụ khác (Ảnh 2, Ảnh 3, Ảnh 4, Ảnh 5)
+                        </div>
+                      </div>
 
-                    {/* Hidden Native File Input */}
+                      <button
+                        type="button"
+                        className="admin-btn admin-btn-outline"
+                        style={{ padding: "0.35rem 0.75rem", fontSize: "0.8rem", height: "auto" }}
+                        disabled={isProcessingMedia}
+                        onClick={() => multiFileInputRef.current?.click()}
+                      >
+                        📁 Chọn nhanh nhiều ảnh từ máy
+                      </button>
+                      <input
+                        ref={multiFileInputRef}
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        style={{ display: "none" }}
+                        onChange={handleMultiImageUpload}
+                      />
+                    </div>
+
+                    {/* 5 Slots hình ảnh */}
+                    <div style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+                      gap: "0.65rem",
+                      marginBottom: "1rem"
+                    }}>
+                      {IMAGE_SLOTS.map((slot, index) => {
+                        const imgUrl = formData.images[index] || "";
+                        const isCover = index === 0;
+
+                        return (
+                          <div
+                            key={slot.id}
+                            style={{
+                              border: `1.5px ${imgUrl ? "solid #3b82f6" : isCover ? "dashed #f59e0b" : "dashed #cbd5e1"}`,
+                              borderRadius: "8px",
+                              background: imgUrl ? "#f8fafc" : isCover ? "#fffbeb" : "#fafafa",
+                              padding: "0.45rem",
+                              display: "flex",
+                              flexDirection: "column",
+                              alignItems: "center",
+                              position: "relative",
+                              minHeight: "185px",
+                              transition: "all 0.15s ease"
+                            }}
+                          >
+                            {/* Header Slot badge & Delete */}
+                            <div style={{
+                              alignSelf: "stretch",
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              marginBottom: "0.35rem"
+                            }}>
+                              <span style={{
+                                fontSize: "0.68rem",
+                                fontWeight: 700,
+                                padding: "0.15rem 0.4rem",
+                                borderRadius: "4px",
+                                background: isCover ? "#fef3c7" : "#f1f5f9",
+                                color: isCover ? "#b45309" : "#475569",
+                                border: isCover ? "1px solid #fde68a" : "1px solid #e2e8f0"
+                              }}>
+                                {isCover ? "⭐ " + slot.label : slot.label}
+                              </span>
+                              {imgUrl && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveSlotImage(index)}
+                                  style={{
+                                    border: "none",
+                                    background: "#fee2e2",
+                                    color: "#ef4444",
+                                    borderRadius: "50%",
+                                    width: "18px",
+                                    height: "18px",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    fontSize: "0.7rem",
+                                    cursor: "pointer"
+                                  }}
+                                  title="Xóa ảnh này"
+                                >
+                                  ✕
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Image Preview or Upload Placeholder */}
+                            {imgUrl ? (
+                              <div style={{ width: "100%", height: "100px", position: "relative", borderRadius: "6px", overflow: "hidden", background: "#fff", border: "1px solid #e2e8f0" }}>
+                                <img
+                                  src={imgUrl}
+                                  alt={slot.label}
+                                  style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    activeSlotIndexRef.current = index;
+                                    singleFileInputRef.current?.click();
+                                  }}
+                                  style={{
+                                    position: "absolute",
+                                    bottom: 3,
+                                    right: 3,
+                                    background: "rgba(15, 23, 42, 0.75)",
+                                    color: "#fff",
+                                    border: "none",
+                                    borderRadius: "4px",
+                                    padding: "0.12rem 0.35rem",
+                                    fontSize: "0.65rem",
+                                    cursor: "pointer"
+                                  }}
+                                >
+                                  Đổi ảnh
+                                </button>
+                              </div>
+                            ) : (
+                              <div
+                                onClick={() => {
+                                  activeSlotIndexRef.current = index;
+                                  singleFileInputRef.current?.click();
+                                }}
+                                style={{
+                                  width: "100%",
+                                  height: "100px",
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  cursor: "pointer",
+                                  borderRadius: "6px",
+                                  gap: "0.2rem",
+                                  color: "#64748b"
+                                }}
+                              >
+                                <div style={{ fontSize: "1.3rem" }}>📷</div>
+                                <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "#334155", textAlign: "center" }}>
+                                  + Tải ảnh
+                                </div>
+                                <div style={{ fontSize: "0.64rem", color: "#94a3b8", textAlign: "center" }}>
+                                  {slot.desc}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Dán URL ảnh nhanh */}
+                            <input
+                              type="text"
+                              placeholder={imgUrl.startsWith("data:") ? "Ảnh từ thiết bị" : "Hoặc dán URL..."}
+                              value={imgUrl.startsWith("data:") ? "" : imgUrl}
+                              onChange={(e) => handleUpdateSlotUrl(index, e.target.value)}
+                              style={{
+                                width: "100%",
+                                marginTop: "0.35rem",
+                                fontSize: "0.68rem",
+                                padding: "0.2rem 0.35rem",
+                                borderRadius: "4px",
+                                border: "1px solid #e2e8f0",
+                                background: "#fff"
+                              }}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Native Single File Input for specific slot */}
                     <input
-                      ref={fileInputRef}
+                      ref={singleFileInputRef}
                       type="file"
                       accept="image/*"
                       style={{ display: "none" }}
-                      onChange={handleFileInputChange}
+                      onChange={handleSingleSlotUpload}
                     />
 
-                    {formData.image ? (
-                      <div className="admin-upload-preview-box">
-                        <img
-                          src={formData.image}
-                          alt="Ảnh sản phẩm đã chọn"
-                          className="admin-upload-preview-img"
-                        />
-                        <div className="admin-upload-preview-info">
-                          <div className="admin-upload-file-name">
-                            {uploadFileName || "Ảnh sản phẩm đã tải lên"}
+                    {/* Video giới thiệu sản phẩm (1 video) */}
+                    <div style={{
+                      border: "1px solid #e2e8f0",
+                      borderRadius: "8px",
+                      padding: "0.75rem",
+                      background: "#f8fafc"
+                    }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.45rem" }}>
+                        <label className="admin-form-label" style={{ fontSize: "0.82rem", fontWeight: 700, color: "#1e293b", margin: 0, display: "flex", alignItems: "center", gap: "0.35rem" }}>
+                          <span>🎥</span> Video sản phẩm (1 video giới thiệu / review)
+                        </label>
+                        {formData.video && (
+                          <button
+                            type="button"
+                            onClick={() => setFormData((prev) => ({ ...prev, video: "" }))}
+                            style={{
+                              border: "none",
+                              background: "#fee2e2",
+                              color: "#ef4444",
+                              padding: "0.15rem 0.45rem",
+                              borderRadius: "4px",
+                              fontSize: "0.72rem",
+                              cursor: "pointer",
+                              fontWeight: 600
+                            }}
+                          >
+                            ✕ Xóa video
+                          </button>
+                        )}
+                      </div>
+
+                      <div style={{ display: "grid", gridTemplateColumns: formData.video ? "160px 1fr" : "1fr", gap: "0.75rem", alignItems: "center" }}>
+                        {/* Video preview nếu có */}
+                        {formData.video && (
+                          <div style={{ borderRadius: "6px", overflow: "hidden", background: "#000", height: "95px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            {formData.video.includes("youtube.com") || formData.video.includes("youtu.be") ? (
+                              <div style={{ color: "#fff", fontSize: "0.72rem", textAlign: "center", padding: "0.4rem" }}>
+                                <div style={{ fontSize: "1.3rem", marginBottom: 2 }}>▶️</div>
+                                YouTube Video
+                              </div>
+                            ) : (
+                              <video
+                                src={formData.video}
+                                controls
+                                style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                              />
+                            )}
                           </div>
-                          <div className="admin-upload-file-status">
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                              <polyline points="20 6 9 17 4 12" />
-                            </svg>
-                            Đã tải ảnh thành công - Sẵn sàng lưu
-                          </div>
-                          <div className="admin-upload-preview-actions">
+                        )}
+
+                        {/* Input options for video */}
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+                          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
                             <button
                               type="button"
-                              className="admin-upload-change-btn"
-                              onClick={() => fileInputRef.current?.click()}
+                              className="admin-btn admin-btn-outline"
+                              style={{ padding: "0.35rem 0.75rem", fontSize: "0.78rem", whiteSpace: "nowrap" }}
+                              onClick={() => videoFileInputRef.current?.click()}
                             >
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                <polyline points="17 8 12 3 7 8" />
-                                <line x1="12" y1="3" x2="12" y2="15" />
-                              </svg>
-                              Đổi ảnh từ thiết bị
+                              📹 Tải tệp video từ máy (.mp4, .webm)
                             </button>
-                            <button
-                              type="button"
-                              className="admin-upload-remove-btn"
-                              onClick={() => {
-                                setFormData((prev) => ({ ...prev, image: "" }));
-                                setUploadFileName("");
-                              }}
-                            >
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <line x1="18" y1="6" x2="6" y2="18" />
-                                <line x1="6" y1="6" x2="18" y2="18" />
-                              </svg>
-                              Xóa ảnh
-                            </button>
+                            <input
+                              ref={videoFileInputRef}
+                              type="file"
+                              accept="video/*"
+                              style={{ display: "none" }}
+                              onChange={handleVideoUpload}
+                            />
+                            <span style={{ fontSize: "0.74rem", color: "#64748b" }}>
+                              (Tối đa 50MB)
+                            </span>
+                          </div>
+
+                          <div>
+                            <input
+                              type="text"
+                              className="admin-input"
+                              placeholder="Hoặc dán link video (VD: https://youtube.com/watch?v=... hoặc https://.../video.mp4)"
+                              value={formData.video.startsWith("data:") ? "" : formData.video}
+                              onChange={(e) => setFormData((prev) => ({ ...prev, video: e.target.value }))}
+                              style={{ fontSize: "0.8rem", padding: "0.4rem 0.6rem" }}
+                            />
                           </div>
                         </div>
                       </div>
-                    ) : (
-                      <div
-                        className={`admin-upload-zone ${isDragging ? "dragover" : ""}`}
-                        onDragOver={handleDragOver}
-                        onDragLeave={handleDragLeave}
-                        onDrop={handleDrop}
-                        onClick={() => fileInputRef.current?.click()}
-                      >
-                        <div className="admin-upload-icon-circle">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                            <polyline points="17 8 12 3 7 8" />
-                            <line x1="12" y1="3" x2="12" y2="15" />
-                          </svg>
-                        </div>
-                        <p className="admin-upload-main-text">
-                          {isProcessingImage
-                            ? "Đang xử lý và nén hình ảnh..."
-                            : "Kéo thả ảnh vào đây hoặc nhấp để chọn ảnh từ thiết bị"}
-                        </p>
-                        <p className="admin-upload-sub-text">
-                          Hỗ trợ định dạng PNG, JPG, JPEG, WEBP, GIF (Tự động nén mượt mà)
-                        </p>
-                        <button
-                          type="button"
-                          className="admin-upload-select-btn"
-                          disabled={isProcessingImage}
-                        >
-                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                            <circle cx="8.5" cy="8.5" r="1.5" />
-                            <polyline points="21 15 16 10 5 21" />
-                          </svg>
-                          Chọn ảnh từ thiết bị
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Hoặc liên kết ảnh URL nếu có */}
-                  <div className="admin-form-group admin-form-full">
-                    <label className="admin-form-label">
-                      Hoặc dán liên kết URL ảnh (tùy chọn)
-                    </label>
-                    <input
-                      type="text"
-                      className="admin-input"
-                      placeholder="https://... hoặc /images/products/..."
-                      value={formData.image.startsWith("data:") ? "" : formData.image}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setFormData((prev) => ({ ...prev, image: val }));
-                        setUploadFileName(val ? "Ảnh từ đường dẫn URL" : "");
-                      }}
-                    />
+                    </div>
                   </div>
 
                   {/* Mô tả */}
@@ -770,7 +1082,7 @@ export default function AdminProductsPage() {
                     <textarea
                       className="admin-textarea"
                       rows={3}
-                      placeholder="Mô tả các đặc điểm nổi bật của ghế..."
+                      placeholder="VD: Thiết kế công thái học cao cấp, lưới thoáng khí, hỗ trợ cột sống tối ưu..."
                       value={formData.description}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     />
@@ -782,6 +1094,7 @@ export default function AdminProductsPage() {
                     <input
                       type="text"
                       className="admin-input"
+                      placeholder="VD: Lưới cao cấp & khung hợp kim nhôm"
                       value={formData.material}
                       onChange={(e) => setFormData({ ...formData, material: e.target.value })}
                     />
@@ -792,20 +1105,60 @@ export default function AdminProductsPage() {
                     <input
                       type="text"
                       className="admin-input"
+                      placeholder="VD: Đen tiêu chuẩn, Xám bạc..."
                       value={formData.color}
                       onChange={(e) => setFormData({ ...formData, color: e.target.value })}
                     />
                   </div>
 
-                  <div className="admin-form-group">
-                    <label className="admin-form-label">Kích thước</label>
-                    <input
-                      type="text"
-                      className="admin-input"
-                      placeholder="VD: 65 × 65 × 115–125 cm"
-                      value={formData.size}
-                      onChange={(e) => setFormData({ ...formData, size: e.target.value })}
-                    />
+                  {/* Kích thước: Dài, Rộng, Cao */}
+                  <div className="admin-form-group admin-form-full">
+                    <label className="admin-form-label">
+                      Kích thước (Dài × Rộng × Cao)
+                    </label>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.6rem" }}>
+                      <div>
+                        <label style={{ fontSize: "0.74rem", color: "#64748b", marginBottom: "0.2rem", display: "block" }}>
+                          Chiều dài (cm)
+                        </label>
+                        <input
+                          type="text"
+                          className="admin-input"
+                          placeholder="VD: 65"
+                          value={formData.sizeLength}
+                          onChange={(e) => setFormData({ ...formData, sizeLength: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: "0.74rem", color: "#64748b", marginBottom: "0.2rem", display: "block" }}>
+                          Chiều rộng (cm)
+                        </label>
+                        <input
+                          type="text"
+                          className="admin-input"
+                          placeholder="VD: 65"
+                          value={formData.sizeWidth}
+                          onChange={(e) => setFormData({ ...formData, sizeWidth: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: "0.74rem", color: "#64748b", marginBottom: "0.2rem", display: "block" }}>
+                          Chiều cao (cm)
+                        </label>
+                        <input
+                          type="text"
+                          className="admin-input"
+                          placeholder="VD: 115 - 125"
+                          value={formData.sizeHeight}
+                          onChange={(e) => setFormData({ ...formData, sizeHeight: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                    {(formData.sizeLength || formData.sizeWidth || formData.sizeHeight) && (
+                      <div style={{ fontSize: "0.78rem", color: "#059669", marginTop: "0.3rem", fontWeight: 500 }}>
+                        Xem trước hiển thị: <strong>{formatDimensions(formData.sizeLength, formData.sizeWidth, formData.sizeHeight)}</strong>
+                      </div>
+                    )}
                   </div>
 
                   <div className="admin-form-group">
@@ -824,6 +1177,7 @@ export default function AdminProductsPage() {
                     <input
                       type="text"
                       className="admin-input"
+                      placeholder="VD: 135 kg"
                       value={formData.capacity}
                       onChange={(e) => setFormData({ ...formData, capacity: e.target.value })}
                     />
@@ -834,6 +1188,7 @@ export default function AdminProductsPage() {
                     <input
                       type="text"
                       className="admin-input"
+                      placeholder="VD: 3 năm, 5 năm..."
                       value={formData.warranty}
                       onChange={(e) => setFormData({ ...formData, warranty: e.target.value })}
                     />
@@ -854,6 +1209,79 @@ export default function AdminProductsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal for Delete */}
+      {deleteConfirmTarget && (
+        <div className="admin-modal-overlay" onClick={() => !deletingProductId && setDeleteConfirmTarget(null)}>
+          <div className="admin-modal" style={{ maxWidth: 460 }} onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header" style={{ borderBottom: "none", paddingBottom: "0.5rem" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                <div style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: "50%",
+                  background: "#fee2e2",
+                  color: "#ef4444",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "1.25rem",
+                  fontWeight: "bold"
+                }}>
+                  ⚠️
+                </div>
+                <h3 className="admin-modal-title" style={{ fontSize: "1.15rem", margin: 0 }}>
+                  Xác nhận xóa sản phẩm
+                </h3>
+              </div>
+              <button
+                type="button"
+                className="admin-btn-icon"
+                onClick={() => !deletingProductId && setDeleteConfirmTarget(null)}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b" }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="admin-modal-body" style={{ padding: "0.5rem 1.5rem 1.5rem" }}>
+              <p style={{ color: "#475569", fontSize: "0.95rem", lineHeight: 1.6, margin: 0 }}>
+                Bạn có chắc chắn muốn xóa sản phẩm <strong>&ldquo;{deleteConfirmTarget.name}&rdquo;</strong>?
+              </p>
+              <p style={{ color: "#64748b", fontSize: "0.85rem", marginTop: "0.5rem", marginBottom: 0 }}>
+                Sản phẩm sẽ được gỡ khỏi danh sách bán hàng và trang khách hàng ngay lập tức.
+              </p>
+            </div>
+
+            <div className="admin-modal-footer" style={{ borderTop: "1px solid #f1f5f9", padding: "1rem 1.5rem" }}>
+              <button
+                type="button"
+                className="admin-btn admin-btn-outline"
+                disabled={Boolean(deletingProductId)}
+                onClick={() => setDeleteConfirmTarget(null)}
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                className="admin-btn"
+                style={{
+                  background: "#dc2626",
+                  color: "#fff",
+                  border: "none",
+                  fontWeight: 600,
+                  cursor: deletingProductId ? "not-allowed" : "pointer",
+                  opacity: deletingProductId ? 0.7 : 1,
+                }}
+                disabled={Boolean(deletingProductId)}
+                onClick={handleConfirmDelete}
+              >
+                {deletingProductId ? "Đang xóa..." : "Xác nhận xóa"}
+              </button>
+            </div>
           </div>
         </div>
       )}

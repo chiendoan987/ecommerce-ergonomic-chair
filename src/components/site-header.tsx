@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { useCart } from "@/components/cart-provider";
 import { useWishlist } from "@/hooks/use-wishlist";
 import { useAuth } from "@/hooks/use-auth";
+import { getCategories } from "@/lib/services/category.service";
 
 function Icon({ name }: { name: "user" | "cart" | "bag" | "chevron" | "menu" | "close" | "heart" }) {
   const paths = {
@@ -71,7 +72,31 @@ export function SiteHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [navCategories, setNavCategories] = useState<string[]>([
+    "Ghế công thái học",
+    "Ghế văn phòng",
+    "Ghế gaming",
+    "Ghế lãnh đạo",
+  ]);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadCats = () => {
+      getCategories()
+        .then((cats) => {
+          if (!isMounted || !cats || cats.length === 0) return;
+          setNavCategories(cats.map((c) => c.name));
+        })
+        .catch(() => {});
+    };
+    loadCats();
+    window.addEventListener("ergochair-categories-change", loadCats);
+    return () => {
+      isMounted = false;
+      window.removeEventListener("ergochair-categories-change", loadCats);
+    };
+  }, []);
 
   useEffect(() => {
     let ticking = false;
@@ -174,18 +199,16 @@ export function SiteHeader() {
                 <span className="dropdown-chevron"><Icon name="chevron" /></span>
               </button>
               <div className="nav-dropdown-menu">
-                <Link scroll={false} href="/products?category=Ghế+công+thái+học" onClick={handleCategoryClick}>
-                  Ghế công thái học
-                </Link>
-                <Link scroll={false} href="/products?category=Ghế+văn+phòng" onClick={handleCategoryClick}>
-                  Ghế văn phòng
-                </Link>
-                <Link scroll={false} href="/products?category=Ghế+gaming" onClick={handleCategoryClick}>
-                  Ghế gaming
-                </Link>
-                <Link scroll={false} href="/products?category=Ghế+lãnh+đạo" onClick={handleCategoryClick}>
-                  Ghế lãnh đạo
-                </Link>
+                {navCategories.map((cat) => (
+                  <Link
+                    key={cat}
+                    scroll={false}
+                    href={`/products?category=${encodeURIComponent(cat)}`}
+                    onClick={handleCategoryClick}
+                  >
+                    {cat}
+                  </Link>
+                ))}
               </div>
             </div>
 
@@ -203,6 +226,15 @@ export function SiteHeader() {
             >
               Liên hệ
             </Link>
+            {isAuthenticated && (
+              <Link
+                className={`nav-item-link ${isActive("/account") ? "active" : ""}`}
+                href="/account"
+                onClick={closeMenus}
+              >
+                Đơn hàng của tôi
+              </Link>
+            )}
 
             {user?.role === "admin" && (
               <Link

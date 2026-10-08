@@ -59,10 +59,6 @@ function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
-  const handleQuickLogin = (email: string) => {
-    setLoginEmail(email);
-    setLoginPassword("123456");
-  };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -230,36 +226,6 @@ function LoginForm() {
             {isLoading ? "Đang xử lý đăng nhập..." : "Đăng nhập ngay"} <span>→</span>
           </button>
 
-          {/* Quick Demo Accounts Box */}
-          <div className="demo-accounts-box">
-            <div className="demo-accounts-title">
-              <span>Đăng nhập nhanh 1-chạm (Dữ liệu thử nghiệm):</span>
-            </div>
-            <div className="demo-buttons">
-              <button
-                type="button"
-                className={`demo-btn ${loginEmail === "quan.tran@example.com" ? "active" : ""}`}
-                onClick={() => handleQuickLogin("quan.tran@example.com")}
-              >
-                <div className="demo-btn-role">
-                  <span>Khách hàng</span>
-                  <span className="demo-btn-badge">VIP</span>
-                </div>
-                <small>quan.tran@example.com</small>
-              </button>
-              <button
-                type="button"
-                className={`demo-btn ${loginEmail === "admin@ergochair.vn" ? "active" : ""}`}
-                onClick={() => handleQuickLogin("admin@ergochair.vn")}
-              >
-                <div className="demo-btn-role">
-                  <span>Quản trị viên</span>
-                  <span className="demo-btn-badge admin">ADMIN</span>
-                </div>
-                <small>admin@ergochair.vn</small>
-              </button>
-            </div>
-          </div>
 
           {/* Switch link to Register */}
           <div className="auth-switch-box">
@@ -269,12 +235,7 @@ function LoginForm() {
             </Link>
           </div>
 
-          {/* Guest browsing link */}
-          <div className="auth-guest-link-wrapper">
-            <Link href="/products" className="auth-guest-link">
-              Duyệt xem danh mục sản phẩm (Khách vãng lai) <span>→</span>
-            </Link>
-          </div>
+
         </form>
       </div>
     </div>

@@ -171,3 +171,193 @@
   line-height: 1.4;
   margin: 0;
 }
+
+/* ==========================================================================
+   Shipping Options & Logistics Grid
+   ========================================================================== */
+
+.checkout-shipping {
+  margin-top: 28px;
+}
+
+.shipping-options-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.shipping-option {
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  padding: 16px 18px;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  background: #fff;
+  position: relative;
+}
+
+.shipping-option:hover {
+  border-color: #c4b5a2;
+}
+
+.shipping-option.active {
+  border-color: #8b7355;
+  background: #faf8f5;
+  box-shadow: 0 0 0 1px #8b7355;
+}
+
+.shipping-option input {
+  margin-top: 4px;
+  accent-color: #8b7355;
+  cursor: pointer;
+}
+
+.shipping-option-content {
+  flex: 1;
+}
+
+.shipping-option-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.shipping-option-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #171717;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.shipping-carrier-pill {
+  font-size: 11px;
+  font-weight: 500;
+  background: #f0ece6;
+  color: #685741;
+  padding: 2px 8px;
+  border-radius: 4px;
+  letter-spacing: -0.2px;
+}
+
+.shipping-option-price {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #171717;
+  white-space: nowrap;
+}
+
+.shipping-option-price.free {
+  color: #059669;
+  background: #e8f7ee;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.shipping-option-desc {
+  font-size: 12.5px;
+  color: #666;
+  line-height: 1.45;
+  margin: 0 0 6px;
+}
+
+.shipping-option-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #8b7355;
+}
+
+/* Free Shipping Eligibility Banner */
+.free-shipping-tracker {
+  background: linear-gradient(135deg, #f4fbf7, #e8f7ee);
+  border: 1px solid #c2ebd0;
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+  color: #065f46;
+}
+
+.free-shipping-tracker strong {
+  color: #047857;
+}
+
+.checkout-select {
+  width: 100%;
+  padding: 11px 13px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 13.5px;
+  color: #171717;
+  background-color: #fff;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
+  outline: none;
+}
+
+.checkout-select:focus {
+  border-color: #8b7355;
+  box-shadow: 0 0 0 2px rgba(139, 115, 85, 0.12);
+}
+
+.checkout-section-heading-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.checkout-demo-autofill-btn {
+  background: #fcf9f2;
+  border: 1px dashed #b89d79;
+  color: #795e3a;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.checkout-demo-autofill-btn:hover {
+  background: #8b7355;
+  border-color: #8b7355;
+  border-style: solid;
+  color: #fff;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(139, 115, 85, 0.25);
+}
+
+.checkout-fields input[aria-invalid="true"],
+.checkout-fields select[aria-invalid="true"] {
+  border-color: #ef4444 !important;
+  background-color: #fffbfb !important;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.15) !important;
+  animation: shakeField 0.3s ease-in-out;
+}
+
+@keyframes shakeField {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+

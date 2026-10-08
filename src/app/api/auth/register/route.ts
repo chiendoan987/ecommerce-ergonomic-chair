@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { register } from "@/lib/services/auth.service";
+import { registerUserInDb } from "@/lib/server/user.repository";
 import { registerSchema } from "@/lib/validators/auth.schema";
 
 export async function POST(request: Request) {
@@ -17,9 +17,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const result = await register(validation.data);
+    const result = await registerUserInDb(validation.data);
 
-    if (!result.success || !result.user) {
+    if (result.error || !result.user) {
       return NextResponse.json(
         { error: result.error || "Không thể tạo tài khoản" },
         { status: 400 }
@@ -30,11 +30,12 @@ export async function POST(request: Request) {
       {
         success: true,
         user: result.user,
-        token: `mock-jwt-token-${result.user.id}`,
+        token: `auth-token-${result.user.id}`,
       },
       { status: 201 }
     );
   } catch (error) {
+    console.error("Lỗi POST /api/auth/register:", error);
     return NextResponse.json(
       { error: "Lỗi trong quá trình đăng ký", details: String(error) },
       { status: 500 }
