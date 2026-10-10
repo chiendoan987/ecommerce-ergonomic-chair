@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useRef, useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { formatPrice } from "@/lib/utils/format";
 import type { ChatbotProductSuggestion } from "@/lib/types/chatbot";
 
@@ -13,6 +13,15 @@ interface Message {
   time: string;
   engine?: "groq" | "database_fallback";
   suggestedProducts?: ChatbotProductSuggestion[];
+  orderInfo?: {
+    id: string;
+    status: string;
+    statusLabel: string;
+    carrier?: string;
+    trackingCode?: string;
+    total: number;
+    paymentStatus: string;
+  } | null;
 }
 
 const INITIAL_MESSAGES: Message[] = [
@@ -44,15 +53,38 @@ const SUGGESTION_CHIPS = [
 /**
  * Helper định dạng nội dung tin nhắn Markdown cơ bản (bold, link)
  */
-function FormattedMessageText({ text }: { text: string }) {
+function FormattedMessageText({
+  text,
+  onNavigate,
+}: {
+  text: string;
+  onNavigate?: (url: string) => void;
+}) {
+  // Trích xuất mã đơn hàng nếu có trong toàn bộ tin nhắn để đính kèm link khi bấm vào "Đơn hàng của tôi"
+  const orderIdInMessage = text.match(/\b(ord-[a-zA-Z0-9-]+)\b/i)?.[1];
+
+  const handleLinkClick = (e: React.MouseEvent, targetUrl: string) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (onNavigate) {
+      onNavigate(targetUrl);
+    }
+  };
+
   // Tách dòng để giữ xuống hàng
   const lines = text.split("\n");
 
   return (
     <div className="chat-text-content">
       {lines.map((line, lineIdx) => {
+        // Chuẩn hóa gỡ bỏ các cặp ** bao quanh [link](url) do AI sinh ra
+        const normalizedLine = line
+          .replace(/\*\*\[(.*?)\]\((.*?)\)\*\*/g, "[$1]($2)")
+          .replace(/\[\*\*(.*?)\*\*\]\((.*?)\)/g, "[$1]($2)");
+
         // Tách các đoạn link markdown [Tên](/url) và bold **chữ**
-        const parts = line.split(/(\[.*?\]\(.*?\)|\*\*.*?\*\*)/g);
+        const parts = normalizedLine.split(/(\[.*?\]\(.*?\)|\*\*.*?\*\*)/g);
 
         return (
           <p key={lineIdx} style={{ margin: lineIdx > 0 ? "6px 0 0" : 0, lineHeight: 1.55 }}>
@@ -60,15 +92,44 @@ function FormattedMessageText({ text }: { text: string }) {
               // 1. Markdown link: [Title](/url)
               const linkMatch = part.match(/^\[(.*?)\]\((.*?)\)$/);
               if (linkMatch) {
-                const [, linkText, linkUrl] = linkMatch;
+                const [, linkText, rawUrl] = linkMatch;
+                let effectiveUrl = rawUrl;
+                // Chuẩn hóa /orders thành /account
+                if (effectiveUrl.startsWith("/orders")) {
+                  effectiveUrl = effectiveUrl.replace("/orders", "/account");
+                }
+                // Nếu link trỏ về /account và có mã đơn trong câu trả lời, tự động gắn query orderId
+                if (
+                  (effectiveUrl === "/account" || effectiveUrl.startsWith("/account?")) &&
+                  orderIdInMessage &&
+                  !effectiveUrl.includes("orderId=")
+                ) {
+                  effectiveUrl = effectiveUrl.includes("?")
+                    ? `${effectiveUrl}&orderId=${encodeURIComponent(orderIdInMessage)}`
+                    : `/account?orderId=${encodeURIComponent(orderIdInMessage)}`;
+                }
+
                 return (
-                  <Link
+                  <a
                     key={partIdx}
-                    href={linkUrl}
-                    style={{ color: "#0d9488", fontWeight: 600, textDecoration: "underline" }}
+                    href={effectiveUrl}
+                    onClick={(e) => handleLinkClick(e, effectiveUrl)}
+                    className="chat-embedded-link"
+                    title={`Mở ${linkText}`}
+                    style={{
+                      color: "#8b7355",
+                      fontWeight: 700,
+                      textDecoration: "underline",
+                      cursor: "pointer",
+                      padding: "1px 5px",
+                      borderRadius: "4px",
+                      background: "rgba(139, 115, 85, 0.12)",
+                      display: "inline-block",
+                      transition: "all 0.15s ease",
+                    }}
                   >
                     {linkText}
-                  </Link>
+                  </a>
                 );
               }
 
@@ -88,30 +149,16 @@ function FormattedMessageText({ text }: { text: string }) {
 
 export function FloatingChatbot() {
   const pathname = usePathname();
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
   const [currentChips, setCurrentChips] = useState<string[]>(SUGGESTION_CHIPS);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [hasNewBadge, setHasNewBadge] = useState(true);
-  const [activeEngine, setActiveEngine] = useState<"groq" | "database_fallback">("groq");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const idCounterRef = useRef(10);
-
-  // Kiểm tra cấu hình Engine ban đầu
-  useEffect(() => {
-    fetch("/api/chatbot")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.groqConfigured) {
-          setActiveEngine("groq");
-        } else {
-          setActiveEngine("database_fallback");
-        }
-      })
-      .catch(() => {});
-  }, []);
 
   // Tự động cuộn xuống tin nhắn mới nhất
   useEffect(() => {
@@ -206,9 +253,6 @@ export function FloatingChatbot() {
       idCounterRef.current += 1;
       const botId = idCounterRef.current;
 
-      if (data.engine) {
-        setActiveEngine(data.engine);
-      }
       if (data.quickReplies && data.quickReplies.length > 0) {
         setCurrentChips(data.quickReplies);
       }
@@ -220,6 +264,7 @@ export function FloatingChatbot() {
         time: currentTime,
         engine: data.engine,
         suggestedProducts: data.suggestedProducts || [],
+        orderInfo: data.orderInfo || null,
       };
 
       setMessages((prev) => [...prev, botMsg]);
@@ -229,14 +274,36 @@ export function FloatingChatbot() {
       const botMsg: Message = {
         id: `b-${idCounterRef.current}`,
         sender: "bot",
-        text: "Hệ thống đang kết nối cơ sở dữ liệu. Bạn có thể gọi hotline **1800 6868** hoặc thử đặt câu hỏi khác nhé!",
+        text: "Hệ thống đang kết nối cơ sở dữ liệu. Bạn có thể gọi hotline **0989 608 685** hoặc thử đặt câu hỏi khác nhé!",
         time: currentTime,
         engine: "database_fallback",
+        orderInfo: null,
       };
       setMessages((prev) => [...prev, botMsg]);
     } finally {
       setIsTyping(false);
     }
+  };
+
+  const handleNavigate = (url: string) => {
+    setIsOpen(false);
+    router.push(url);
+  };
+
+  const handleChipClick = (chip: string) => {
+    if (chip.includes("Xem Đơn hàng của tôi") || chip.includes("Xem tất cả Đơn hàng của tôi")) {
+      setIsOpen(false);
+      let targetUrl = "/account";
+      if (typeof window !== "undefined") {
+        const lastOrderId = localStorage.getItem("ergochair_last_order_id");
+        if (lastOrderId) {
+          targetUrl = `/account?orderId=${encodeURIComponent(lastOrderId)}`;
+        }
+      }
+      router.push(targetUrl);
+      return;
+    }
+    handleSend(chip);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -268,12 +335,9 @@ export function FloatingChatbot() {
             </div>
             <div>
               <h3 className="chat-bot-name">
-                ErgoBot{" "}
-                <span className="chat-badge-ai">
-                  {activeEngine === "groq" ? "⚡ Groq AI" : "🗄️ ErgoCare DB"}
-                </span>
+                ErgoBot <span className="chat-badge-ai">Trợ lý AI</span>
               </h3>
-              <p className="chat-bot-status">● Trực tuyến • Đồng bộ MySQL 24/7</p>
+              <p className="chat-bot-status">● Trực tuyến • Hỗ trợ 24/7</p>
             </div>
           </div>
 
@@ -320,15 +384,65 @@ export function FloatingChatbot() {
               )}
               <div className="chat-bubble-container" style={{ width: "100%", maxWidth: "100%" }}>
                 <div className="chat-message-bubble">
-                  <FormattedMessageText text={msg.text} />
+                  <FormattedMessageText text={msg.text} onNavigate={handleNavigate} />
+
+                  {/* Nút hành động trực tiếp xem tiến độ đơn hàng */}
+                  {msg.sender === "bot" && (() => {
+                    const orderId =
+                      msg.orderInfo?.id ||
+                      msg.text.match(/\b(ord-[a-zA-Z0-9-]+)\b/i)?.[1];
+                    if (!orderId) return null;
+                    return (
+                      <div
+                        style={{
+                          marginTop: "10px",
+                          paddingTop: "8px",
+                          borderTop: "1px dashed rgba(139, 115, 85, 0.25)",
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleNavigate(
+                              `/account?orderId=${encodeURIComponent(orderId)}`
+                            )
+                          }
+                          className="chat-order-action-btn"
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "6px",
+                            background:
+                              "linear-gradient(135deg, #8b7355, #6f583e)",
+                            color: "#ffffff",
+                            padding: "7px 14px",
+                            borderRadius: "8px",
+                            fontSize: "12.5px",
+                            fontWeight: 600,
+                            border: "none",
+                            cursor: "pointer",
+                            boxShadow: "0 2px 8px rgba(139, 115, 85, 0.2)",
+                            transition: "all 0.2s ease",
+                          }}
+                        >
+                          <span>📦 Xem tiến độ đơn #{orderId}</span>
+                          <span aria-hidden="true">➔</span>
+                        </button>
+                      </div>
+                    );
+                  })()}
 
                   {/* Render Product Suggestion Mini Cards nếu có */}
                   {msg.suggestedProducts && msg.suggestedProducts.length > 0 && (
                     <div className="chat-product-suggestions">
                       {msg.suggestedProducts.map((prod) => (
-                        <Link
+                        <a
                           key={prod.id}
                           href={`/products/${prod.slug}`}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleNavigate(`/products/${prod.slug}`);
+                          }}
                           className="chat-product-card"
                           title={`Xem chi tiết ghế ${prod.name}`}
                         >
@@ -350,7 +464,7 @@ export function FloatingChatbot() {
                             </div>
                           </div>
                           <span className="chat-product-btn-arrow">→</span>
-                        </Link>
+                        </a>
                       ))}
                     </div>
                   )}
@@ -383,7 +497,7 @@ export function FloatingChatbot() {
                   key={idx}
                   type="button"
                   className="chat-chip-btn"
-                  onClick={() => handleSend(chip)}
+                  onClick={() => handleChipClick(chip)}
                   disabled={isTyping}
                 >
                   {chip}
@@ -427,10 +541,7 @@ export function FloatingChatbot() {
             </button>
           </form>
           <div className="chat-footnote">
-            ⚡ Trợ lý ErgoBot •
-            <span className="chat-engine-tag">
-              {activeEngine === "groq" ? "Groq Llama 3.3" : "MySQL Grounded"}
-            </span>
+            ⚡ Trợ lý tư vấn công thái học ErgoChair • Hỗ trợ 24/7
           </div>
         </footer>
       </section>

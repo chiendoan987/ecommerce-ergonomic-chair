@@ -1,0 +1,14 @@
+HƯỚNG DẪN CÀI ĐẶT FONT DVN COFFEE SPARK VIỆT HÓA:
+===================================================
+
+1. Khi bạn tải hoặc mua file font "DVN Coffee Spark Việt hóa" từ FontVN / DesignerVN:
+   - Copy file font (.ttf hoặc .otf hoặc .woff2) vào thư mục này: public/fonts/
+   - Đặt tên file là: dvn-coffee-spark.ttf (hoặc dvn-coffee-spark.otf / dvn-coffee-spark.woff2)
+
+2. Hoặc bạn có thể cài đặt font trực tiếp vào máy tính Windows (Double click vào file font -> Chọn "Install").
+   Hệ thống web đã cấu hình sẵn hàm local('DVN Coffee Spark') để tự động nhận diện font trên máy bạn.
+
+3. Ngay khi có file font hoặc font đã cài đặt, trang web sẽ tự động hiển thị 100% font DVN Coffee Spark cho cả 3 tiêu đề:
+   - "Không gian làm việc chuẩn công thái học." (Trang chủ)
+   - "Thiết kế để bạn ngồi tốt hơn." (Trang giới thiệu)
+   - "Hãy bắt đầu một cuộc trò chuyện." (Trang liên hệ)

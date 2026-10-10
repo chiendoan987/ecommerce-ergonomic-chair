@@ -229,9 +229,9 @@ export default function CheckoutPage() {
             name: i.product.name,
             price: i.product.price,
             image: i.product.image || i.product.images?.[0] || "/images/products/cloud-mesh-air.png",
-          },
+          } as any,
           quantity: i.quantity,
-          variantId: (i as any).variantId || null,
+          variantId: (i as any).variantId || undefined,
         })),
         shippingAddress: {
           fullName: form.fullName.trim(),

@@ -59,6 +59,49 @@ function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
+  // Forgot password modal state
+  const [isForgotOpen, setIsForgotOpen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotPhone, setForgotPhone] = useState("");
+  const [forgotNote, setForgotNote] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotSuccessMsg, setForgotSuccessMsg] = useState("");
+  const [forgotErrorMsg, setForgotErrorMsg] = useState("");
+
+  const handleForgotSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotErrorMsg("");
+    setForgotSuccessMsg("");
+
+    if (!forgotEmail.trim()) {
+      setForgotErrorMsg("Vui lòng nhập địa chỉ email đã đăng ký.");
+      return;
+    }
+
+    setForgotLoading(true);
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: forgotEmail.trim(),
+          phone: forgotPhone.trim() || undefined,
+          note: forgotNote.trim() || undefined,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setForgotErrorMsg(data.error || "Không thể gửi yêu cầu.");
+      } else {
+        setForgotSuccessMsg(data.message || "Yêu cầu cấp lại mật khẩu đã được gửi thành công đến Quản trị viên.");
+      }
+    } catch {
+      setForgotErrorMsg("Lỗi kết nối máy chủ. Vui lòng thử lại sau.");
+    } finally {
+      setForgotLoading(false);
+    }
+  };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -216,6 +259,18 @@ function LoginForm() {
               <input type="checkbox" defaultChecked />
               <span>Ghi nhớ đăng nhập</span>
             </label>
+            <button
+              type="button"
+              className="auth-forgot-link"
+              onClick={() => {
+                setForgotEmail(loginEmail);
+                setForgotSuccessMsg("");
+                setForgotErrorMsg("");
+                setIsForgotOpen(true);
+              }}
+            >
+              Quên mật khẩu?
+            </button>
           </div>
 
           <button
@@ -226,7 +281,6 @@ function LoginForm() {
             {isLoading ? "Đang xử lý đăng nhập..." : "Đăng nhập ngay"} <span>→</span>
           </button>
 
-
           {/* Switch link to Register */}
           <div className="auth-switch-box">
             Chưa có tài khoản?
@@ -234,10 +288,130 @@ function LoginForm() {
               Đăng ký tài khoản mới ngay →
             </Link>
           </div>
-
-
         </form>
       </div>
+
+      {/* Modal Yêu cầu cấp lại mật khẩu */}
+      {isForgotOpen && (
+        <div className="forgot-modal-overlay" onClick={() => setIsForgotOpen(false)}>
+          <div className="forgot-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="forgot-modal-header">
+              <div className="forgot-icon-wrap">🔑</div>
+              <div>
+                <h3>Yêu cầu cấp lại mật khẩu</h3>
+                <p>Gửi thông tin để Ban Quản trị xác minh và cấp lại mật khẩu mới cho bạn</p>
+              </div>
+              <button
+                type="button"
+                className="forgot-close-btn"
+                onClick={() => setIsForgotOpen(false)}
+                aria-label="Đóng"
+              >
+                ✕
+              </button>
+            </div>
+
+            {forgotSuccessMsg ? (
+              <div className="forgot-success-box">
+                <div className="forgot-success-icon">✓</div>
+                <h4>Yêu cầu đã được gửi thành công!</h4>
+                <p>{forgotSuccessMsg}</p>
+                <div style={{ marginTop: "20px" }}>
+                  <button
+                    type="button"
+                    className="auth-submit-btn"
+                    onClick={() => setIsForgotOpen(false)}
+                  >
+                    Quay lại Đăng nhập
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleForgotSubmit} className="forgot-form">
+                {forgotErrorMsg && (
+                  <div className="auth-error-banner" role="alert" style={{ marginBottom: "16px" }}>
+                    <span>{forgotErrorMsg}</span>
+                  </div>
+                )}
+
+                <div className="auth-form-field">
+                  <label htmlFor="forgot-email">Địa chỉ Email đã đăng ký *</label>
+                  <div className="auth-input-wrapper">
+                    <input
+                      id="forgot-email"
+                      type="email"
+                      placeholder="name@example.com"
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                      required
+                      autoFocus
+                    />
+                  </div>
+                </div>
+
+                <div className="auth-form-field">
+                  <label htmlFor="forgot-phone">Số điện thoại liên hệ (Tùy chọn)</label>
+                  <div className="auth-input-wrapper">
+                    <input
+                      id="forgot-phone"
+                      type="tel"
+                      placeholder="0987 654 321"
+                      value={forgotPhone}
+                      onChange={(e) => setForgotPhone(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="auth-form-field">
+                  <label htmlFor="forgot-note">Ghi chú hoặc lý do gửi Quản trị viên (Tùy chọn)</label>
+                  <div className="auth-input-wrapper">
+                    <textarea
+                      id="forgot-note"
+                      rows={2}
+                      placeholder="Ví dụ: Tôi quên mật khẩu cũ, vui lòng cấp lại mật khẩu mới giúp tôi."
+                      value={forgotNote}
+                      onChange={(e) => setForgotNote(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "10px 14px",
+                        borderRadius: "8px",
+                        border: "1.5px solid #d8cfc2",
+                        fontSize: "13.5px",
+                        fontFamily: "inherit",
+                        resize: "none",
+                        outline: "none",
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div className="forgot-notice-banner">
+                  <span>💡</span>
+                  <span>Sau khi tiếp nhận yêu cầu, Quản trị viên sẽ kiểm tra và cấp lại mật khẩu mới cho tài khoản của bạn.</span>
+                </div>
+
+                <div className="forgot-modal-actions">
+                  <button
+                    type="button"
+                    className="forgot-btn-cancel"
+                    onClick={() => setIsForgotOpen(false)}
+                    disabled={forgotLoading}
+                  >
+                    Hủy bỏ
+                  </button>
+                  <button
+                    type="submit"
+                    className="auth-submit-btn forgot-btn-submit"
+                    disabled={forgotLoading}
+                  >
+                    {forgotLoading ? "Đang gửi yêu cầu..." : "Gửi yêu cầu tới Admin"} ➔
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

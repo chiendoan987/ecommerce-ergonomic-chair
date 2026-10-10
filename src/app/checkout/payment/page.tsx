@@ -134,19 +134,7 @@ function PaymentGatewayContent() {
 
   return (
     <main className="payment-gateway-page">
-      {/* 1. Sandbox Demonstration Notice */}
-      <div className="sandbox-alert-banner" data-reveal="fade">
-        <div className="sandbox-alert-icon">💡</div>
-        <div className="sandbox-alert-content">
-          <h4>Môi trường thử nghiệm Sandbox (Demo Đồ Án)</h4>
-          <p>
-            Hệ thống đang chạy cổng thanh toán mô phỏng phục vụ mục đích kiểm thử và chấm bài.
-            Bạn có thể quét mã QR thử nghiệm hoặc bấm nút <strong>"Xác nhận thanh toán thành công"</strong> bên dưới để đơn hàng tự động chuyển sang trạng thái <strong>ĐÃ THANH TOÁN (PAID)</strong> trong cơ sở dữ liệu.
-          </p>
-        </div>
-      </div>
-
-      {/* 2. Main Gateway Card */}
+      {/* Main Gateway Card */}
       <div className="payment-gateway-card" data-reveal="up">
         {/* Header Bar */}
         <header className="gateway-header">
@@ -159,13 +147,13 @@ function PaymentGatewayContent() {
             )}
             {method === "vnpay" && (
               <div className="gateway-brand-name">
-                <h3>💳 Cổng Thanh Toán Điện Tử VNPAY Sandbox</h3>
+                <h3>💳 Cổng Thanh Toán Điện Tử VNPAY</h3>
                 <span>Cổng thanh toán bảo mật chuẩn VNPAY-QR & Thẻ Quốc tế</span>
               </div>
             )}
             {method === "momo" && (
               <div className="gateway-brand-name">
-                <h3>📱 Cổng Thanh Toán Ví Điện Tử MoMo Sandbox</h3>
+                <h3>📱 Cổng Thanh Toán Ví Điện Tử MoMo</h3>
                 <span>Thanh toán an toàn qua ứng dụng MoMo QR</span>
               </div>
             )}
@@ -310,10 +298,10 @@ function PaymentGatewayContent() {
             </div>
           )}
 
-          {/* 3. Sandbox Control Actions */}
+          {/* Xác nhận kết quả thanh toán */}
           <div className="sandbox-action-panel">
             <span className="sandbox-action-title">
-              Thao tác thử nghiệm Sandbox (Dành cho kiểm thử & thuyết trình)
+              Xác nhận kết quả thanh toán
             </span>
             <div className="sandbox-buttons-row">
               {method === "bank_transfer" && (
@@ -323,7 +311,7 @@ function PaymentGatewayContent() {
                   onClick={() => handleConfirmPayment(true)}
                   disabled={processing}
                 >
-                  ✓ Tôi đã chuyển khoản – Xác nhận đã nhận tiền (Mô phỏng)
+                  ✓ Tôi đã hoàn tất chuyển khoản
                 </button>
               )}
               {method === "vnpay" && (
@@ -333,7 +321,7 @@ function PaymentGatewayContent() {
                   onClick={() => handleConfirmPayment(true)}
                   disabled={processing}
                 >
-                  ✓ Giả lập Thanh toán thành công (VNPAY Sandbox)
+                  ✓ Xác nhận thanh toán thành công (VNPAY)
                 </button>
               )}
               {method === "momo" && (
@@ -343,7 +331,7 @@ function PaymentGatewayContent() {
                   onClick={() => handleConfirmPayment(true)}
                   disabled={processing}
                 >
-                  ✓ Giả lập Thanh toán thành công (Ví MoMo)
+                  ✓ Xác nhận thanh toán thành công (Ví MoMo)
                 </button>
               )}
               <button

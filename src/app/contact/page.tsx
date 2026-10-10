@@ -9,8 +9,8 @@ export default function ContactPage() {
       </div>
       <section className="contact-details">
         <div data-reveal="up" data-reveal-delay="80">
-          <span>Hotline</span>
-          <a href="tel:18006868">1800 6868</a>
+          <span>Hotline / Zalo</span>
+          <a href="tel:0989608685">0989 608 685</a>
         </div>
         <div data-reveal="up" data-reveal-delay="160">
           <span>Email</span>

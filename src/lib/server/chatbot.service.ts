@@ -279,6 +279,12 @@ export async function extractQueryPlan(
       if (!llmPlan.entities.orderCode && fallback.entities.orderCode) {
         llmPlan.entities.orderCode = fallback.entities.orderCode;
       }
+      if (fallback.entities.orderCode || fallback.intent === "TRACK_ORDER") {
+        llmPlan.intent = "TRACK_ORDER";
+        if (!llmPlan.targetTables.includes("Order")) {
+          llmPlan.targetTables.push("Order");
+        }
+      }
       if (!llmPlan.entities.phoneNumber && fallback.entities.phoneNumber) {
         llmPlan.entities.phoneNumber = fallback.entities.phoneNumber;
       }
@@ -545,7 +551,7 @@ ${ordersListStr}
 - Tổng thanh toán: ${o.total.toLocaleString("vi-VN")}đ (${o.paymentMethod === "cod" ? "COD" : "Chuyển khoản / Cổng thanh toán"})
 - Sản phẩm gồm: ${o.items.map((i: any) => `${i.productName} (x${i.quantity})`).join(", ")}
 
-*CHỈ THỊ QUAN TRỌNG*: Khách hàng đang hỏi về tiến độ đơn hàng. Hãy trả lời chi tiết và chuẩn xác theo dữ liệu trên, nhắc khách xem tại [Đơn hàng của tôi](/account). TUYỆT ĐỐI KHÔNG chào bán sản phẩm ghế khi khách tra cứu đơn hàng!
+*CHỈ THỊ QUAN TRỌNG*: Khách hàng đang hỏi về tiến độ đơn hàng. Hãy trả lời chi tiết và chuẩn xác theo dữ liệu trên, nhắc khách xem tại liên kết [Đơn hàng của tôi](/account?orderId=${o.id}) (chính xác cú pháp [Đơn hàng của tôi](/account?orderId=${o.id}), không bọc thêm dấu sao ** quanh link). TUYỆT ĐỐI KHÔNG chào bán sản phẩm ghế khi khách tra cứu đơn hàng!
 `;
     } else {
       contextSection += `
@@ -589,9 +595,10 @@ Nhiệm vụ của bạn là trả lời khách hàng DỰA 100% TRÊN DỮ LI�
 ${contextSection}
 
 QUY TẮC CỐT LÕI:
-1. Khi khách hỏi đơn hàng: Trả lời đúng dữ liệu bảng Order, tuyệt đối không chèn quảng cáo ghế.
-2. Khi khách hỏi mã giảm giá: Khẳng định rõ website không có mã giảm giá riêng, giá niêm yết đã là giá ưu đãi trực tiếp tốt nhất.
-3. Khi tư vấn ghế: Dùng đúng tên, giá bán VNĐ, bảo hành và link \`[Tên ghế](/products/slug)\` theo dữ liệu bảng Product.`;
+1. Khi khách hỏi đơn hàng: Trả lời đúng dữ liệu bảng Order, tuyệt đối không chèn quảng cáo ghế. BẮT BUỘC cung cấp link theo cú pháp chính xác [Đơn hàng của tôi](/account?orderId=MÃ_ĐƠN).
+2. TUYỆT ĐỐI KHÔNG bọc link Markdown trong dấu sao ** (Ví dụ ĐÚNG: [Đơn hàng của tôi](/account?orderId=ord-123), Ví dụ SAI: **[Đơn hàng của tôi](...)**).
+3. Khi khách hỏi mã giảm giá: Khẳng định rõ website không có mã giảm giá riêng, giá niêm yết đã là giá ưu đãi trực tiếp tốt nhất.
+4. Khi tư vấn ghế: Dùng đúng tên, giá bán VNĐ, bảo hành và link [Tên ghế](/products/slug) theo dữ liệu bảng Product.`;
 }
 
 /**
@@ -729,7 +736,7 @@ Bạn có thể nhắn mã đơn hàng (ví dụ: \`${dbData.multipleOrders[0].i
 **Sản phẩm trong đơn:**
 ${itemsList}
 
-👉 Bạn có thể theo dõi chi tiết tại mục [Đơn hàng của tôi](/account) bất cứ lúc nào!`;
+👉 Bạn có thể theo dõi chi tiết tại mục [Đơn hàng của tôi](/account?orderId=${o.id}) bất cứ lúc nào!`;
     }
 
     return `📦 **Tra cứu tiến độ giao hàng ErgoChair:**
@@ -889,7 +896,7 @@ export async function processChatbotMessage(
           ? [
               "🔍 Tra cứu đơn hàng gần nhất",
               "📦 Xem Đơn hàng của tôi",
-              "📞 Hotline hỗ trợ 1800 6868",
+              "📞 Hotline hỗ trợ 0989 608 685",
             ]
           : [
               "📦 Đơn hàng đã giao đến đâu?",
@@ -898,8 +905,36 @@ export async function processChatbotMessage(
               "🛡️ Chính sách bảo hành bao lâu?",
             ];
 
+      // Chuẩn hóa và làm sạch câu trả lời từ Groq
+      let finalGroqReply = groqReply;
+      if (dbData.singleOrder) {
+        const orderId = dbData.singleOrder.id;
+        // 1. Gỡ bỏ dấu sao ** bọc quanh link markdown
+        finalGroqReply = finalGroqReply
+          .replace(/\*\*\[(.*?)\]\((.*?)\)\*\*/g, "[$1]($2)")
+          .replace(/\[\*\*(.*?)\*\*\]\((.*?)\)/g, "[$1]($2)");
+
+        // 2. Tự động đính kèm ?orderId= vào link [Đơn hàng của tôi](/account) nếu chưa có
+        finalGroqReply = finalGroqReply.replace(
+          /\[([^\]]+)\]\((\/(?:account|orders))(\?[^)]*)?\)/g,
+          (match, text, path, qs) => {
+            if (qs && qs.includes("orderId=")) return `[${text}](/account${qs})`;
+            const existingQs = qs ? qs.slice(1) : "";
+            const newQs = existingQs
+              ? `${existingQs}&orderId=${encodeURIComponent(orderId)}`
+              : `orderId=${encodeURIComponent(orderId)}`;
+            return `[${text}](/account?${newQs})`;
+          }
+        );
+
+        // 3. Nếu Groq quên hoàn toàn link tra cứu, tự động bổ sung cuối tin nhắn
+        if (!finalGroqReply.includes("/account")) {
+          finalGroqReply += `\n\n👉 Bạn có thể theo dõi chi tiết tiến độ tại [Đơn hàng của tôi](/account?orderId=${encodeURIComponent(orderId)}).`;
+        }
+      }
+
       return {
-        message: groqReply,
+        message: finalGroqReply,
         engine: "groq",
         suggestedProducts,
         quickReplies: dynamicQuickReplies,
@@ -925,10 +960,30 @@ export async function processChatbotMessage(
 
   // Nếu Groq không khả dụng, sử dụng Database Semantic Engine
   const deterministicReply = generateDeterministicReply(queryPlan, dbData);
+  let finalDeterministicReply = deterministicReply;
+  if (dbData.singleOrder) {
+    const orderId = dbData.singleOrder.id;
+    finalDeterministicReply = finalDeterministicReply
+      .replace(/\*\*\[(.*?)\]\((.*?)\)\*\*/g, "[$1]($2)")
+      .replace(/\[\*\*(.*?)\*\*\]\((.*?)\)/g, "[$1]($2)");
+
+    finalDeterministicReply = finalDeterministicReply.replace(
+      /\[([^\]]+)\]\((\/(?:account|orders))(\?[^)]*)?\)/g,
+      (match, text, path, qs) => {
+        if (qs && qs.includes("orderId=")) return `[${text}](/account${qs})`;
+        const existingQs = qs ? qs.slice(1) : "";
+        const newQs = existingQs
+          ? `${existingQs}&orderId=${encodeURIComponent(orderId)}`
+          : `orderId=${encodeURIComponent(orderId)}`;
+        return `[${text}](/account?${newQs})`;
+      }
+    );
+  }
+
   const fallbackProducts = extractSuggestedProducts(
     queryPlan,
     dbData.products,
-    deterministicReply
+    finalDeterministicReply
   );
 
   const dynamicQuickReplies =
@@ -941,7 +996,7 @@ export async function processChatbotMessage(
       ? [
           "🔍 Tra cứu đơn hàng gần nhất",
           "📦 Xem Đơn hàng của tôi",
-          "📞 Hotline hỗ trợ 1800 6868",
+          "📞 Hotline hỗ trợ 0989 608 685",
         ]
       : [
           "📦 Đơn hàng đã giao đến đâu?",
@@ -951,7 +1006,7 @@ export async function processChatbotMessage(
         ];
 
   return {
-    message: deterministicReply,
+    message: finalDeterministicReply,
     engine: "database_fallback",
     suggestedProducts: fallbackProducts,
     quickReplies: dynamicQuickReplies,

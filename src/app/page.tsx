@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useCart } from "@/components/cart-provider";
 import { useWishlist } from "@/hooks/use-wishlist";
 import { useToast } from "@/hooks/use-toast";
 import { RecentlyViewedProducts } from "@/components/recently-viewed-products";
 import { getProducts } from "@/lib/services/product.service";
 import { formatPrice } from "@/lib/utils/format";
+import { smoothScrollToTop } from "@/lib/utils/scroll";
+import { siteConfig } from "@/config/site.config";
 import type { Product } from "@/lib/types/product";
 
 const FILTER_TABS = [
@@ -183,6 +185,81 @@ export default function Home() {
       ? allProducts.slice(0, 8)
       : allProducts.filter((p) => p.category === selectedCategory).slice(0, 8);
 
+  const scrollAnimRef = useRef<number | null>(null);
+
+  // Cuộn mượt mà, êm ái với đường cong cubic easing sang trọng
+  const smoothScrollToTarget = useCallback((targetId: string, duration = 1000) => {
+    if (typeof window === "undefined") return;
+    const target = document.getElementById(targetId);
+    if (!target) return;
+
+    if (scrollAnimRef.current) {
+      cancelAnimationFrame(scrollAnimRef.current);
+      scrollAnimRef.current = null;
+    }
+
+    const startY = window.pageYOffset || document.documentElement.scrollTop;
+    const headerOffset = 76;
+    const elementPosition = target.getBoundingClientRect().top;
+    const targetY = Math.max(0, elementPosition + startY - headerOffset);
+    const distance = targetY - startY;
+
+    if (Math.abs(distance) < 4) return;
+
+    const originalScrollBehavior = document.documentElement.style.scrollBehavior;
+    document.documentElement.style.scrollBehavior = "auto";
+
+    const startTime = performance.now();
+
+    // Easing curve: mượt mà, êm dịu, giảm tốc tự nhiên
+    const easeInOutCubic = (t: number) => {
+      return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    };
+
+    const cleanup = () => {
+      document.documentElement.style.scrollBehavior = originalScrollBehavior;
+      window.removeEventListener("wheel", cancelScroll);
+      window.removeEventListener("touchstart", cancelScroll);
+    };
+
+    const cancelScroll = () => {
+      if (scrollAnimRef.current) {
+        cancelAnimationFrame(scrollAnimRef.current);
+        scrollAnimRef.current = null;
+      }
+      cleanup();
+    };
+
+    window.addEventListener("wheel", cancelScroll, { passive: true });
+    window.addEventListener("touchstart", cancelScroll, { passive: true });
+
+    const step = (now: number) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = easeInOutCubic(progress);
+
+      window.scrollTo(0, Math.round(startY + distance * eased));
+
+      if (progress < 1) {
+        scrollAnimRef.current = requestAnimationFrame(step);
+      } else {
+        scrollAnimRef.current = null;
+        cleanup();
+        window.history.pushState(null, "", `#${targetId}`);
+      }
+    };
+
+    scrollAnimRef.current = requestAnimationFrame(step);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (scrollAnimRef.current) {
+        cancelAnimationFrame(scrollAnimRef.current);
+      }
+    };
+  }, []);
+
   return (
     <div className="minimal-home-page">
       <main id="top">
@@ -195,8 +272,8 @@ export default function Home() {
             <div className="hero-copy" data-reveal="up">
 
               <h1 className="hero-headline">
-                Không Gian Làm Việc<br />
-                <span className="hero-headline-accent">Chuẩn Công Thái Học.</span>
+                Không gian làm việc<br />
+                <span className="hero-headline-accent">chuẩn công thái học.</span>
               </h1>
               <p className="hero-description">
                 Giải pháp bàn nâng hạ và ghế công thái học cao cấp, bảo vệ cột sống và
@@ -205,11 +282,25 @@ export default function Home() {
 
               {/* CTAs */}
               <div className="hero-actions">
-                <Link className="btn-wood-accent" href="#products">
+                <Link
+                  className="btn-wood-accent"
+                  href="#products"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    smoothScrollToTarget("products", 850);
+                  }}
+                >
                   Khám phá sản phẩm
                   <Icon name="arrow" />
                 </Link>
-                <Link className="btn-clean-outline" href="#collections">
+                <Link
+                  className="btn-clean-outline"
+                  href="#benefits"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    smoothScrollToTarget("benefits", 1050);
+                  }}
+                >
                   Tìm hiểu thêm
                 </Link>
               </div>
@@ -301,7 +392,7 @@ export default function Home() {
               </div>
               <div className="feature-content">
                 <h4>Hỗ trợ 24/7</h4>
-                <p>Hotline 1800 6868 miễn phí</p>
+                <p>Hotline {siteConfig.hotline} miễn phí</p>
               </div>
             </div>
           </div>
@@ -360,7 +451,7 @@ export default function Home() {
         {/* =========================================================================
             4. WHY CHOOSE ERGOCHAIR (Health & Science Benefits)
            ========================================================================= */}
-        <section className="home-benefits-section" aria-label="Ưu thế công thái học ErgoChair">
+        <section id="benefits" className="home-benefits-section" aria-label="Ưu thế công thái học ErgoChair">
           <div className="section-container">
             <div className="benefits-layout">
               <div className="benefits-left-copy" data-reveal="up">
@@ -431,7 +522,19 @@ export default function Home() {
           <div className="footer-columns-grid">
             {/* Brand Column */}
             <div className="footer-col-brand">
-              <Link className="footer-logo" href="#top">
+              <Link
+                className="footer-logo"
+                href="/"
+                onClick={(e) => {
+                  e.preventDefault();
+                  smoothScrollToTop();
+                  if (typeof window !== "undefined" && window.location.hash) {
+                    window.history.replaceState(null, "", "/");
+                  }
+                }}
+                title="Về trang chủ và cuộn lên đầu trang"
+                aria-label="ErgoChair - Về trang chủ và cuộn lên đầu trang"
+              >
                 <span className="logo-mark">e</span> ErgoChair
               </Link>
               <p className="footer-mission">
@@ -468,7 +571,7 @@ export default function Home() {
             {/* Contact Column */}
             <div className="footer-col footer-contact-col">
               <h4>Liên hệ</h4>
-              <p>Hotline: <strong>1800 6868</strong> (Miễn phí)</p>
+              <p>Hotline: <strong>{siteConfig.hotline}</strong> (Miễn phí)</p>
               <p>Email: hello@ergochair.vn</p>
               <p>Địa chỉ: 36 Nguyễn Cơ Thạch, Nam Từ Liêm, Hà Nội</p>
               <p>Showroom TP.HCM: 120 Điện Biên Phủ, Quận 1, TP.HCM</p>

@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useCart } from "@/components/cart-provider";
 import { useWishlist } from "@/hooks/use-wishlist";
 import { useAuth } from "@/hooks/use-auth";
 import { getCategories } from "@/lib/services/category.service";
+import { smoothScrollToTop } from "@/lib/utils/scroll";
 
 function Icon({ name }: { name: "user" | "cart" | "bag" | "chevron" | "menu" | "close" | "heart" }) {
   const paths = {
@@ -152,6 +153,21 @@ export function SiteHeader() {
     }
   };
 
+  const handleLogoClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    closeMenus();
+
+    if (pathname === "/") {
+      e.preventDefault();
+      smoothScrollToTop();
+      if (typeof window !== "undefined" && window.location.hash) {
+        window.history.replaceState(null, "", "/");
+      }
+    } else {
+      // Đang ở trang khác: điều hướng về trang chủ và cuộn mượt lên đầu trang
+      window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+    }
+  };
+
   if (pathname.startsWith("/admin")) {
     return null;
   }
@@ -161,7 +177,13 @@ export function SiteHeader() {
       <header className="site-header global-header minimal-brand-header">
         <div className="header-primary-group">
           {/* Logo with rounded warm mocha badge */}
-          <Link className="logo" href="/" onClick={closeMenus}>
+          <Link
+            className="logo"
+            href="/"
+            onClick={handleLogoClick}
+            title="Về trang chủ và cuộn lên đầu trang"
+            aria-label="ErgoChair - Về trang chủ và cuộn lên đầu trang"
+          >
             <span className="logo-mark" aria-hidden="true">e</span>
             <span className="logo-text">ErgoChair</span>
           </Link>
@@ -241,7 +263,7 @@ export function SiteHeader() {
                 className="nav-item-link admin-nav-shortcut"
                 href="/admin"
                 onClick={closeMenus}
-                style={{ color: "#d97706", fontWeight: 600 }}
+                style={{ color: "#d97706", fontWeight: 700 }}
               >
                 ⚙️ Quản trị
               </Link>
@@ -285,20 +307,19 @@ export function SiteHeader() {
           {!isAuthenticated ? (
             <div className="header-auth-buttons">
               <Link
-                className={`header-auth-link header-login-link ${isActive("/login") ? "active" : ""}`}
+                className={`header-auth-btn header-login-btn ${isActive("/login") ? "active" : ""}`}
                 href="/login"
                 aria-label="Đăng nhập"
               >
-                <span className="action-icon"><Icon name="user" /></span>
-                <span className="action-text">Đăng nhập</span>
+                <span className="auth-btn-icon"><Icon name="user" /></span>
+                <span>Đăng nhập</span>
               </Link>
-              <span className="auth-separator" aria-hidden="true">/</span>
               <Link
                 className={`header-auth-btn header-register-btn ${isActive("/register") ? "active" : ""}`}
                 href="/register"
                 aria-label="Đăng ký tài khoản"
               >
-                Đăng ký
+                <span>Đăng ký</span>
               </Link>
             </div>
           ) : (

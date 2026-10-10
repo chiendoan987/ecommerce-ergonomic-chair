@@ -328,3 +328,32 @@ model ContactMessage {
 
   @@index([isRead])
 }
+
+// =========================================================================
+// 5. YÊU CẦU CẤP LẠI MẬT KHẨU (PASSWORD RESET REQUESTS)
+// =========================================================================
+enum ResetRequestStatus {
+  pending
+  completed
+  rejected
+}
+
+model PasswordResetRequest {
+  id           String             @id @default(uuid())
+  email        String             @db.VarChar(191)
+  phone        String?            @db.VarChar(50)
+  fullName     String?            @db.VarChar(191)
+  note         String?            @db.Text
+  status       ResetRequestStatus @default(pending)
+  newPassword  String?            @db.VarChar(100)
+  adminNote    String?            @db.Text
+  processedBy  String?            @db.VarChar(191)
+  processedAt  DateTime?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@index([email])
+  @@index([status])
+  @@index([createdAt])
+}
+

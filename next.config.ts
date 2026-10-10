@@ -8,4 +8,5 @@ const nextConfig: NextConfig = {
   ],
 };
 
+// Config updated to refresh dev server
 export default nextConfig;

@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { getOrders } from "@/lib/services/order.service";
+import { getOrders, getOrderById } from "@/lib/services/order.service";
 import { formatDate, formatPrice } from "@/lib/utils/format";
 import type { Order } from "@/lib/types/order";
 import "./account.css";
@@ -42,8 +42,155 @@ function getOrderStepIndex(status: Order["status"]): number {
   }
 }
 
-export default function AccountPage() {
+/**
+ * Component hiển thị Card đơn hàng chuẩn với thanh tiến trình trực quan
+ */
+function OrderCardItem({ order, isHighlighted }: { order: Order; isHighlighted?: boolean }) {
+  const statusInfo = STATUS_MAP[order.status] || {
+    label: order.status,
+    className: "status-pending",
+  };
+
+  return (
+    <article
+      id={`order-${order.id}`}
+      className={`order-history-card ${isHighlighted ? "is-highlighted" : ""}`}
+      style={isHighlighted ? { border: "2px solid #8b7355", boxShadow: "0 6px 24px rgba(139, 115, 85, 0.12)" } : {}}
+    >
+      <div className="order-card-header">
+        <div className="order-id-date">
+          <strong>Mã đơn: #{order.id}</strong>
+          <time>{formatDate(order.createdAt)}</time>
+        </div>
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          {isHighlighted && (
+            <span style={{ fontSize: "11px", fontWeight: 700, background: "#8b7355", color: "#fff", padding: "3px 8px", borderRadius: "12px" }}>
+              Đang xem
+            </span>
+          )}
+          <span className={`order-status-badge ${statusInfo.className}`}>
+            {statusInfo.label}
+          </span>
+        </div>
+      </div>
+
+      {/* Thanh tiến trình trực quan */}
+      {order.status !== "cancelled" && (
+        <div className="order-card-stepper">
+          <div className="order-stepper-track">
+            {ORDER_STEPS.map((stepItem, idx) => {
+              const stepIdx = getOrderStepIndex(order.status);
+              const isPassed = stepIdx > stepItem.step || (stepItem.step === 4 && stepIdx === 4);
+              const isCurrent = stepIdx === stepItem.step;
+              return (
+                <div
+                  key={stepItem.step}
+                  className={`order-step-node ${isPassed ? "is-passed" : ""} ${isCurrent ? "is-current" : ""}`}
+                >
+                  <div className="node-dot">
+                    {isPassed ? "✓" : stepItem.step}
+                  </div>
+                  <span className="node-label">{stepItem.label}</span>
+                  {idx < ORDER_STEPS.length - 1 && (
+                    <div
+                      className={`node-connector ${stepIdx > stepItem.step ? "is-active" : ""}`}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <div className="order-delivery-status-note">
+            <span>
+              🚚 Đơn vị: <strong>{order.carrier || "Giao Hàng Tiết Kiệm (GHTK)"}</strong>
+              {order.trackingCode && <> • Vận đơn: <strong>{order.trackingCode}</strong></>}
+            </span>
+            {order.estimatedDelivery && (
+              <span>
+                📅 Dự kiến nhận: <strong>{formatDate(order.estimatedDelivery)}</strong>
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Danh sách sản phẩm */}
+      <div className="order-items-list">
+        {order.items.map((item) => (
+          <div key={item.id} className="order-item-row">
+            <img src={item.productImage} alt={item.productName} />
+            <div className="order-item-details">
+              <h4>
+                <Link href={`/products/${item.productId}`}>
+                  {item.productName}
+                </Link>
+              </h4>
+              <p>Số lượng: {item.quantity}</p>
+            </div>
+            <strong className="order-item-price">
+              {formatPrice(item.price * item.quantity)}
+            </strong>
+          </div>
+        ))}
+      </div>
+
+      {/* Thông tin giao nhận và thanh toán */}
+      <div className="order-card-footer">
+        <div className="order-meta-info">
+          <p>
+            <strong>Địa chỉ nhận hàng:</strong> {order.shippingAddress.fullName} – {order.shippingAddress.phone} ({order.shippingAddress.detail}, {order.shippingAddress.district}, {order.shippingAddress.province})
+          </p>
+          <p>
+            <strong>Vận chuyển:</strong> {order.carrier || "Giao Hàng Tiết Kiệm (GHTK)"}
+            {order.trackingCode && <> • Mã vận đơn: <span style={{ color: "#8b7355", fontWeight: 600 }}>{order.trackingCode}</span></>}
+          </p>
+          <p>
+            <strong>Thanh toán:</strong> {PAYMENT_MAP[order.paymentMethod] || order.paymentMethod}
+            {order.paymentStatus === "paid" ? (
+              <span style={{ marginLeft: "8px", color: "#15803d", fontWeight: 600, background: "#f0fdf4", padding: "2px 8px", borderRadius: "12px", border: "1px solid #bbf7d0", fontSize: "11.5px" }}>
+                ✓ Đã thanh toán
+              </span>
+            ) : order.paymentMethod === "cod" ? (
+              <span style={{ marginLeft: "8px", color: "#786e63", background: "#f7f5f2", padding: "2px 8px", borderRadius: "12px", border: "1px solid #ede5d8", fontSize: "11.5px" }}>
+                Thu tiền khi nhận hàng (COD)
+              </span>
+            ) : (
+              <span style={{ marginLeft: "8px", color: "#b45309", background: "#fef9ee", padding: "2px 8px", borderRadius: "12px", border: "1px solid #fde68a", fontSize: "11.5px" }}>
+                ⏳ Chờ thanh toán
+              </span>
+            )}
+          </p>
+        </div>
+        <div className="order-total-block">
+          <span>Tổng thanh toán:</span>
+          <strong>{formatPrice(order.total)}</strong>
+          {order.paymentStatus !== "paid" && order.paymentMethod !== "cod" && order.status !== "cancelled" && (
+            <Link
+              href={`/checkout/payment?orderId=${encodeURIComponent(order.id)}&method=${order.paymentMethod}&total=${order.total}`}
+              style={{
+                display: "inline-block",
+                marginTop: "6px",
+                fontSize: "12px",
+                color: "#8b7355",
+                fontWeight: 600,
+                textDecoration: "underline",
+              }}
+            >
+              Quét mã thanh toán <span>→</span>
+            </Link>
+          )}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function AccountPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const queryOrderId = searchParams.get("orderId");
+  const queryTab = searchParams.get("tab");
+
   const {
     user,
     isLoading: authLoading,
@@ -61,11 +208,27 @@ export default function AccountPage() {
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [orderStatusFilter, setOrderStatusFilter] = useState<string>("all");
 
+  // Tra cứu đơn hàng cho khách (Guest / Chatbot link)
+  const [lookupQuery, setLookupQuery] = useState(queryOrderId || "");
+  const [guestOrders, setGuestOrders] = useState<Order[]>([]);
+  const [guestLookupLoading, setGuestLookupLoading] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [recentOrderId, setRecentOrderId] = useState<string | null>(null);
+
   // Profile edit form state
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [prevUser, setPrevUser] = useState(user);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+
+  // Cập nhật activeTab khi có param ?tab=
+  useEffect(() => {
+    if (queryTab === "profile" || queryTab === "addresses") {
+      setActiveTab(queryTab);
+    } else {
+      setActiveTab("orders");
+    }
+  }, [queryTab]);
 
   // Sync profile fields during render when user changes
   if (user !== prevUser) {
@@ -86,13 +249,105 @@ export default function AccountPage() {
   const [addrIsDefault, setAddrIsDefault] = useState(false);
   const [isSavingAddress, setIsSavingAddress] = useState(false);
 
-  // Load orders
+  // Hàm tra cứu đơn hàng theo Mã đơn hoặc Số điện thoại
+  const performLookup = async (query: string) => {
+    const clean = query.trim();
+    if (!clean) return;
+    setGuestLookupLoading(true);
+    setHasSearched(true);
+
+    try {
+      // 1. Thử tìm theo ID trước nếu chuỗi giống ID (VD: ord-...)
+      if (clean.toLowerCase().startsWith("ord-") || clean.length >= 8) {
+        const single = await getOrderById(clean);
+        if (single) {
+          setGuestOrders([single]);
+          setGuestLookupLoading(false);
+          return;
+        }
+      }
+
+      // 2. Tra cứu qua API search
+      const res = await fetch(`/api/orders?search=${encodeURIComponent(clean)}`, {
+        cache: "no-store",
+      });
+      if (res.ok) {
+        const data: Order[] = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          setGuestOrders(data);
+          setGuestLookupLoading(false);
+          return;
+        }
+      }
+
+      // 3. Fallback thử lại ID
+      const fallbackSingle = await getOrderById(clean);
+      if (fallbackSingle) {
+        setGuestOrders([fallbackSingle]);
+      } else {
+        setGuestOrders([]);
+      }
+    } catch (err) {
+      console.error("Lỗi tra cứu đơn hàng:", err);
+      setGuestOrders([]);
+    } finally {
+      setGuestLookupLoading(false);
+    }
+  };
+
+  // Tự động tải đơn hàng khi có orderId trên URL hoặc có recentOrderId trong localStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const storedLastOrder = localStorage.getItem("ergochair_last_order_id");
+      if (storedLastOrder) {
+        setRecentOrderId(storedLastOrder);
+      }
+
+      if (queryOrderId) {
+        localStorage.setItem("ergochair_last_order_id", queryOrderId);
+        setRecentOrderId(queryOrderId);
+        setActiveTab("orders");
+        setOrderStatusFilter("all");
+      }
+
+      const targetId = queryOrderId || storedLastOrder;
+      if (targetId) {
+        setLookupQuery(targetId);
+        performLookup(targetId);
+      }
+    }
+  }, [queryOrderId]);
+
+  // Tự động cuộn đến đơn hàng được chọn
+  useEffect(() => {
+    if (queryOrderId) {
+      const timer = setTimeout(() => {
+        const el = document.getElementById(`order-${queryOrderId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 400);
+      return () => clearTimeout(timer);
+    }
+  }, [queryOrderId, orders, guestOrders]);
+
+  // Load orders cho tài khoản đã đăng nhập
   useEffect(() => {
     let isMounted = true;
     if (user) {
-      getOrders(user.id).then((data) => {
+      getOrders(user.id).then(async (data) => {
         if (!isMounted) return;
-        setOrders(data);
+        let finalOrders = [...data];
+
+        // Nếu có queryOrderId mà chưa có trong danh sách orders của user, fetch thêm để hiển thị ngay
+        if (queryOrderId && !finalOrders.some((o) => o.id === queryOrderId)) {
+          const extraOrder = await getOrderById(queryOrderId);
+          if (extraOrder && isMounted) {
+            finalOrders = [extraOrder, ...finalOrders];
+          }
+        }
+
+        setOrders(finalOrders);
         setOrdersLoading(false);
       }).catch(() => {
         if (isMounted) setOrdersLoading(false);
@@ -120,7 +375,7 @@ export default function AccountPage() {
       isMounted = false;
       window.removeEventListener("ergochair-orders-change", handleOrdersChange);
     };
-  }, [user]);
+  }, [user, queryOrderId]);
 
   if (authLoading) {
     return (
@@ -131,31 +386,146 @@ export default function AccountPage() {
     );
   }
 
+  // =========================================================================
+  // GIAO DIỆN KHI NGƯỜI DÙNG CHƯA ĐĂNG NHẬP (GUEST / TRA CỨU ĐƠN HÀNG TRỰC TIẾP)
+  // Đảm bảo khi bấm vào "[Đơn hàng của tôi](/account)" luôn vào thẳng trang Đơn hàng
+  // =========================================================================
   if (!isAuthenticated || !user) {
     return (
-      <div className="account-page">
+      <div className="account-page guest-orders-view">
         <div className="catalog-breadcrumb" data-reveal="fade">
           <Link href="/">Trang chủ</Link>
           <span>/</span>
-          <strong>Tài khoản người dùng</strong>
+          <strong>Đơn hàng của tôi</strong>
         </div>
-        <main className="account-unauth-container" data-reveal="scale">
-          <div className="unauth-icon" aria-hidden="true">🔒</div>
-          <h2>Yêu cầu đăng nhập</h2>
-          <p>Bạn cần đăng nhập để xem thông tin cá nhân, theo dõi đơn hàng và quản lý sổ địa chỉ.</p>
-          <div className="unauth-actions">
-            <Link href="/login?redirect=/account" className="button button-mocha">
-              Đăng nhập tài khoản <span>→</span>
-            </Link>
-            <Link href="/products" className="button button-outline">
-              Khám phá sản phẩm
-            </Link>
+
+        <header className="guest-orders-header" data-reveal="up">
+          <h1>Đơn hàng của tôi</h1>
+          <p>
+            Theo dõi tiến độ giao hàng trực quan, mã vận đơn và thông tin chi tiết sản phẩm của bạn trên hệ thống ErgoChair.
+          </p>
+        </header>
+
+        {/* Hộp tra cứu đơn hàng nhanh */}
+        <section className="order-lookup-box" data-reveal="up">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              performLookup(lookupQuery);
+            }}
+            className="order-lookup-form"
+          >
+            <div className="order-lookup-input-wrap">
+              <span className="order-lookup-icon" aria-hidden="true">🔍</span>
+              <input
+                type="text"
+                className="order-lookup-input"
+                placeholder="Nhập mã đơn hàng (VD: ord-325051-655) hoặc số điện thoại..."
+                value={lookupQuery}
+                onChange={(e) => setLookupQuery(e.target.value)}
+              />
+            </div>
+            <button
+              type="submit"
+              className="order-lookup-btn"
+              disabled={guestLookupLoading || !lookupQuery.trim()}
+            >
+              {guestLookupLoading ? "Đang tra cứu..." : "Tra cứu đơn hàng"}
+            </button>
+          </form>
+
+          {/* Gợi ý tra cứu nhanh đơn vừa đặt */}
+          {recentOrderId && (
+            <div className="order-lookup-hints">
+              <span>Đơn vừa đặt trên thiết bị:</span>
+              <button
+                type="button"
+                className="order-lookup-quick-chip"
+                onClick={() => {
+                  setLookupQuery(recentOrderId);
+                  performLookup(recentOrderId);
+                }}
+              >
+                📦 #{recentOrderId}
+              </button>
+            </div>
+          )}
+        </section>
+
+        {/* Kết quả hiển thị đơn hàng */}
+        {guestLookupLoading ? (
+          <div className="account-loading-page" style={{ margin: "20px auto", padding: "30px" }}>
+            <div className="loading-spinner" />
+            <p>Đang tải thông tin đơn hàng...</p>
           </div>
-        </main>
+        ) : guestOrders.length > 0 ? (
+          <section className="guest-orders-results" data-reveal="up">
+            <div className="order-highlight-banner">
+              <span>
+                ✓ Đã tìm thấy <strong>{guestOrders.length}</strong> đơn hàng tương ứng
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setGuestOrders([]);
+                  setLookupQuery("");
+                  setHasSearched(false);
+                }}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "#8b7355",
+                  cursor: "pointer",
+                  fontSize: "12px",
+                  textDecoration: "underline",
+                }}
+              >
+                Làm mới tìm kiếm
+              </button>
+            </div>
+            <div className="orders-list">
+              {guestOrders.map((order) => (
+                <OrderCardItem
+                  key={order.id}
+                  order={order}
+                  isHighlighted={queryOrderId === order.id}
+                />
+              ))}
+            </div>
+          </section>
+        ) : hasSearched ? (
+          <div className="account-empty-state" style={{ margin: "20px auto" }} data-reveal="up">
+            <div className="empty-icon" aria-hidden="true">🔍</div>
+            <h3>Không tìm thấy đơn hàng</h3>
+            <p>Không có đơn hàng nào khớp với thông tin &ldquo;{lookupQuery}&rdquo;. Vui lòng kiểm tra lại mã đơn hàng hoặc số điện thoại.</p>
+          </div>
+        ) : (
+          <div className="account-empty-state" style={{ margin: "20px auto" }} data-reveal="up">
+            <div className="empty-icon" aria-hidden="true">📦</div>
+            <h3>Nhập thông tin để xem đơn hàng</h3>
+            <p>Hãy nhập mã đơn hàng (được cấp khi đặt hàng thành công hoặc từ trợ lý ErgoBot) vào thanh tìm kiếm phía trên để theo dõi lộ trình vận chuyển.</p>
+          </div>
+        )}
+
+        {/* Banner Đăng nhập để đồng bộ lịch sử tài khoản */}
+        <div className="guest-account-sync-banner" data-reveal="up">
+          <div>
+            <p>
+              <strong>Bạn đã có tài khoản ErgoChair?</strong><br />
+              Đăng nhập để xem toàn bộ danh sách đơn hàng đã mua, quản lý sổ địa chỉ và quyền lợi bảo hành chính hãng 5 năm.
+            </p>
+          </div>
+          <Link href="/login?redirect=/account" className="button button-mocha" style={{ whiteSpace: "nowrap" }}>
+            Đăng nhập tài khoản <span>→</span>
+          </Link>
+        </div>
       </div>
     );
   }
 
+  // =========================================================================
+  // GIAO DIỆN TÀI KHOẢN ĐÃ ĐĂNG NHẬP
+  // =========================================================================
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSavingProfile(true);
@@ -303,131 +673,13 @@ export default function AccountPage() {
                   <div className="orders-list">
                     {orders
                       .filter((o) => orderStatusFilter === "all" || o.status === orderStatusFilter)
-                      .map((order) => {
-                        const statusInfo = STATUS_MAP[order.status] || {
-                          label: order.status,
-                          className: "status-pending",
-                        };
-                        return (
-                          <article key={order.id} className="order-history-card">
-                            <div className="order-card-header">
-                              <div className="order-id-date">
-                                <strong>Mã đơn: #{order.id}</strong>
-                                <time>{formatDate(order.createdAt)}</time>
-                              </div>
-                              <span className={`order-status-badge ${statusInfo.className}`}>
-                                {statusInfo.label}
-                              </span>
-                            </div>
-
-                            {/* Thanh tiến trình trực quan hiển thị ngay lập tức (Không cần tra cứu) */}
-                            {order.status !== "cancelled" && (
-                              <div className="order-card-stepper">
-                                <div className="order-stepper-track">
-                                  {ORDER_STEPS.map((stepItem, idx) => {
-                                    const stepIdx = getOrderStepIndex(order.status);
-                                    const isPassed = stepIdx > stepItem.step || (stepItem.step === 4 && stepIdx === 4);
-                                    const isCurrent = stepIdx === stepItem.step;
-                                    return (
-                                      <div
-                                        key={stepItem.step}
-                                        className={`order-step-node ${isPassed ? "is-passed" : ""} ${isCurrent ? "is-current" : ""}`}
-                                      >
-                                        <div className="node-dot">
-                                          {isPassed ? "✓" : stepItem.step}
-                                        </div>
-                                        <span className="node-label">{stepItem.label}</span>
-                                        {idx < ORDER_STEPS.length - 1 && (
-                                          <div
-                                            className={`node-connector ${stepIdx > stepItem.step ? "is-active" : ""}`}
-                                          />
-                                        )}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                                <div className="order-delivery-status-note">
-                                  <span>
-                                    🚚 Đơn vị: <strong>{order.carrier || "Giao Hàng Tiết Kiệm (GHTK)"}</strong>
-                                    {order.trackingCode && <> • Vận đơn: <strong>{order.trackingCode}</strong></>}
-                                  </span>
-                                  {order.estimatedDelivery && (
-                                    <span>
-                                      📅 Dự kiến nhận: <strong>{formatDate(order.estimatedDelivery)}</strong>
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-
-                            <div className="order-items-list">
-                              {order.items.map((item) => (
-                                <div key={item.id} className="order-item-row">
-                                  <img src={item.productImage} alt={item.productName} />
-                                  <div className="order-item-details">
-                                    <h4>
-                                      <Link href={`/products/${item.productId}`}>
-                                        {item.productName}
-                                      </Link>
-                                    </h4>
-                                    <p>Số lượng: {item.quantity}</p>
-                                  </div>
-                                  <strong className="order-item-price">
-                                    {formatPrice(item.price * item.quantity)}
-                                  </strong>
-                                </div>
-                              ))}
-                            </div>
-
-                            <div className="order-card-footer">
-                              <div className="order-meta-info">
-                                <p>
-                                  <strong>Địa chỉ nhận hàng:</strong> {order.shippingAddress.fullName} – {order.shippingAddress.phone} ({order.shippingAddress.detail}, {order.shippingAddress.district}, {order.shippingAddress.province})
-                                </p>
-                                <p>
-                                  <strong>Vận chuyển:</strong> {order.carrier || "Giao Hàng Tiết Kiệm (GHTK)"}
-                                  {order.trackingCode && <> • Mã vận đơn: <span style={{ color: "#8b7355", fontWeight: 600 }}>{order.trackingCode}</span></>}
-                                </p>
-                                <p>
-                                  <strong>Thanh toán:</strong> {PAYMENT_MAP[order.paymentMethod] || order.paymentMethod}
-                                  {order.paymentStatus === "paid" ? (
-                                    <span style={{ marginLeft: "8px", color: "#15803d", fontWeight: 600, background: "#f0fdf4", padding: "2px 8px", borderRadius: "12px", border: "1px solid #bbf7d0", fontSize: "11.5px" }}>
-                                      ✓ Đã thanh toán
-                                    </span>
-                                  ) : order.paymentMethod === "cod" ? (
-                                    <span style={{ marginLeft: "8px", color: "#786e63", background: "#f7f5f2", padding: "2px 8px", borderRadius: "12px", border: "1px solid #ede5d8", fontSize: "11.5px" }}>
-                                      Thu tiền khi nhận hàng (COD)
-                                    </span>
-                                  ) : (
-                                    <span style={{ marginLeft: "8px", color: "#b45309", background: "#fef9ee", padding: "2px 8px", borderRadius: "12px", border: "1px solid #fde68a", fontSize: "11.5px" }}>
-                                      ⏳ Chờ thanh toán
-                                    </span>
-                                  )}
-                                </p>
-                              </div>
-                              <div className="order-total-block">
-                                <span>Tổng thanh toán:</span>
-                                <strong>{formatPrice(order.total)}</strong>
-                                {order.paymentStatus !== "paid" && order.paymentMethod !== "cod" && order.status !== "cancelled" && (
-                                  <Link
-                                    href={`/checkout/payment?orderId=${encodeURIComponent(order.id)}&method=${order.paymentMethod}&total=${order.total}`}
-                                    style={{
-                                      display: "inline-block",
-                                      marginTop: "6px",
-                                      fontSize: "12px",
-                                      color: "#8b7355",
-                                      fontWeight: 600,
-                                      textDecoration: "underline",
-                                    }}
-                                  >
-                                    Quét mã thanh toán <span>→</span>
-                                  </Link>
-                                )}
-                              </div>
-                            </div>
-                          </article>
-                        );
-                      })}
+                      .map((order) => (
+                        <OrderCardItem
+                          key={order.id}
+                          order={order}
+                          isHighlighted={queryOrderId === order.id}
+                        />
+                      ))}
                   </div>
                 )}
               </>
@@ -438,54 +690,47 @@ export default function AccountPage() {
         {/* Tab 2: Addresses */}
         {activeTab === "addresses" && (
           <section className="account-tab-panel" data-reveal="up">
-            <div className="addresses-header">
+            <div className="address-section-header">
               <div>
-                <h3>Danh sách địa chỉ giao hàng</h3>
-                <p>Quản lý các địa chỉ nhận hàng để thanh toán nhanh hơn khi đặt mua ghế.</p>
+                <h2>Sổ địa chỉ nhận hàng</h2>
+                <p>Quản lý các địa chỉ giao hàng để đặt hàng nhanh chóng hơn.</p>
               </div>
               <button
                 type="button"
                 className="button button-mocha"
-                onClick={() => setIsAddressFormOpen(!isAddressFormOpen)}
+                onClick={() => setIsAddressFormOpen(true)}
               >
-                {isAddressFormOpen ? "Đóng biểu mẫu" : "+ Thêm địa chỉ mới"}
+                + Thêm địa chỉ mới
               </button>
             </div>
 
-            {/* New Address Form */}
             {isAddressFormOpen && (
-              <form className="address-form-box" onSubmit={handleAddressSubmit} data-reveal="fade">
-                <h4>Thêm địa chỉ giao hàng mới</h4>
-                <div className="form-grid-2">
+              <form className="address-form-modal" onSubmit={handleAddressSubmit}>
+                <h3>Thêm địa chỉ giao hàng mới</h3>
+                <div className="form-grid">
                   <div className="form-field">
-                    <label htmlFor="addr-name">Họ và tên người nhận *</label>
+                    <label>Họ và tên người nhận *</label>
                     <input
-                      id="addr-name"
                       type="text"
-                      placeholder="Ví dụ: Trần Minh Quân"
                       value={addrName}
                       onChange={(e) => setAddrName(e.target.value)}
+                      placeholder="Nguyễn Văn A"
                       required
                     />
                   </div>
                   <div className="form-field">
-                    <label htmlFor="addr-phone">Số điện thoại *</label>
+                    <label>Số điện thoại *</label>
                     <input
-                      id="addr-phone"
                       type="tel"
-                      placeholder="0987 654 321"
                       value={addrPhone}
                       onChange={(e) => setAddrPhone(e.target.value)}
+                      placeholder="0912 345 678"
                       required
                     />
                   </div>
-                </div>
-
-                <div className="form-grid-2">
                   <div className="form-field">
-                    <label htmlFor="addr-province">Tỉnh / Thành phố *</label>
+                    <label>Tỉnh / Thành phố *</label>
                     <select
-                      id="addr-province"
                       value={addrProvince}
                       onChange={(e) => setAddrProvince(e.target.value)}
                     >
@@ -497,44 +742,43 @@ export default function AccountPage() {
                     </select>
                   </div>
                   <div className="form-field">
-                    <label htmlFor="addr-district">Quận / Huyện *</label>
+                    <label>Quận / Huyện *</label>
                     <input
-                      id="addr-district"
                       type="text"
-                      placeholder="Ví dụ: Quận Cầu Giấy"
                       value={addrDistrict}
                       onChange={(e) => setAddrDistrict(e.target.value)}
+                      placeholder="Quận Cầu Giấy"
                       required
                     />
                   </div>
+                  <div className="form-field form-field-full">
+                    <label>Địa chỉ chi tiết (Số nhà, tên đường, tòa nhà) *</label>
+                    <input
+                      type="text"
+                      value={addrDetail}
+                      onChange={(e) => setAddrDetail(e.target.value)}
+                      placeholder="Số 123 Đường Cầu Giấy, Phường Dịch Vọng"
+                      required
+                    />
+                  </div>
+                  <div className="form-field form-field-checkbox form-field-full">
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={addrIsDefault}
+                        onChange={(e) => setAddrIsDefault(e.target.checked)}
+                      />
+                      <span>Đặt làm địa chỉ mặc định cho các đơn hàng tiếp theo</span>
+                    </label>
+                  </div>
                 </div>
-
-                <div className="form-field">
-                  <label htmlFor="addr-detail">Địa chỉ chi tiết (Số nhà, tên đường, tòa nhà) *</label>
-                  <input
-                    id="addr-detail"
-                    type="text"
-                    placeholder="Ví dụ: Tầng 6, Số 123 Duy Tân"
-                    value={addrDetail}
-                    onChange={(e) => setAddrDetail(e.target.value)}
-                    required
-                  />
-                </div>
-
-                <label className="checkbox-field">
-                  <input
-                    type="checkbox"
-                    checked={addrIsDefault}
-                    onChange={(e) => setAddrIsDefault(e.target.checked)}
-                  />
-                  <span>Đặt làm địa chỉ giao hàng mặc định</span>
-                </label>
 
                 <div className="address-form-actions">
                   <button
                     type="button"
                     className="button button-outline"
                     onClick={() => setIsAddressFormOpen(false)}
+                    disabled={isSavingAddress}
                   >
                     Hủy bỏ
                   </button>
@@ -543,50 +787,55 @@ export default function AccountPage() {
                     className="button button-mocha"
                     disabled={isSavingAddress}
                   >
-                    {isSavingAddress ? "Đang lưu..." : "Lưu địa chỉ"} <span>→</span>
+                    {isSavingAddress ? "Đang lưu..." : "Lưu địa chỉ"}
                   </button>
                 </div>
               </form>
             )}
 
-            {/* Address Cards Grid */}
             {user.addresses.length === 0 ? (
               <div className="account-empty-state">
-                <p>Bạn chưa lưu địa chỉ giao hàng nào. Hãy thêm địa chỉ để thanh toán thuận tiện hơn.</p>
+                <div className="empty-icon" aria-hidden="true">📍</div>
+                <h3>Chưa có địa chỉ nào</h3>
+                <p>Thêm địa chỉ giao hàng để tiện lợi hơn khi mua các sản phẩm công thái học.</p>
               </div>
             ) : (
               <div className="address-cards-grid">
                 {user.addresses.map((addr) => (
                   <article key={addr.id} className={`address-card ${addr.isDefault ? "is-default" : ""}`}>
                     <div className="address-card-top">
-                      <strong>{addr.fullName}</strong>
+                      <div className="address-card-name-phone">
+                        <strong>{addr.fullName}</strong>
+                        <span>{addr.phone}</span>
+                      </div>
                       {addr.isDefault && (
                         <span className="default-badge">Mặc định</span>
                       )}
                     </div>
-                    <p className="address-phone">☎ {addr.phone}</p>
-                    <p className="address-location">
+                    <p className="address-detail-text">
                       {addr.detail}, {addr.district}, {addr.province}
                     </p>
                     <div className="address-card-actions">
-                      {!addr.isDefault && addr.id && (
+                      {!addr.isDefault && (
                         <button
                           type="button"
-                          className="btn-set-default"
-                          onClick={() => setDefaultAddress(addr.id!)}
+                          className="link-btn"
+                          onClick={() => {
+                            if (addr.id) setDefaultAddress(addr.id);
+                          }}
                         >
-                          Đặt mặc định
+                          Đặt làm mặc định
                         </button>
                       )}
-                      {addr.id && (
-                        <button
-                          type="button"
-                          className="btn-delete-addr"
-                          onClick={() => deleteAddress(addr.id!)}
-                        >
-                          Xóa
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        className="link-btn text-danger"
+                        onClick={() => {
+                          if (addr.id) deleteAddress(addr.id);
+                        }}
+                      >
+                        Xóa
+                      </button>
                     </div>
                   </article>
                 ))}
@@ -598,15 +847,15 @@ export default function AccountPage() {
         {/* Tab 3: Profile */}
         {activeTab === "profile" && (
           <section className="account-tab-panel" data-reveal="up">
-            <div className="profile-form-container">
-              <h3>Chỉnh sửa thông tin cá nhân</h3>
-              <p className="profile-subtitle">Cập nhật thông tin liên hệ của bạn tại ErgoChair.</p>
+            <div className="profile-edit-box">
+              <h2>Thông tin tài khoản cá nhân</h2>
+              <p>Cập nhật thông tin của bạn để chúng tôi phục vụ chu đáo nhất.</p>
 
-              <form className="profile-form" onSubmit={handleProfileSubmit}>
+              <form onSubmit={handleProfileSubmit} className="profile-form">
                 <div className="form-field">
-                  <label htmlFor="profile-fullname">Họ và tên</label>
+                  <label htmlFor="profile-name">Họ và tên</label>
                   <input
-                    id="profile-fullname"
+                    id="profile-name"
                     type="text"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
@@ -653,5 +902,20 @@ export default function AccountPage() {
         )}
       </main>
     </div>
+  );
+}
+
+export default function AccountPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="account-loading-page" aria-busy="true">
+          <div className="loading-spinner" />
+          <p>Đang tải thông tin đơn hàng...</p>
+        </main>
+      }
+    >
+      <AccountPageContent />
+    </Suspense>
   );
 }

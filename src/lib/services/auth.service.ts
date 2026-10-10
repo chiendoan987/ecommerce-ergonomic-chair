@@ -434,3 +434,68 @@ export async function deleteUserByAdmin(
     return { success: false, error: "Lỗi kết nối máy chủ." };
   }
 }
+
+export interface PasswordResetAdminItem {
+  id: string;
+  email: string;
+  phone: string | null;
+  fullName: string | null;
+  note: string | null;
+  status: "pending" | "completed" | "rejected";
+  newPassword: string | null;
+  adminNote: string | null;
+  processedBy: string | null;
+  processedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Quản trị viên lấy danh sách yêu cầu cấp lại mật khẩu
+ */
+export async function getPasswordResetRequestsByAdmin(
+  statusFilter: string = "all"
+): Promise<PasswordResetAdminItem[]> {
+  try {
+    const res = await fetch(
+      `/api/admin/password-resets?status=${encodeURIComponent(statusFilter)}`,
+      { cache: "no-store" }
+    );
+    if (!res.ok) return [];
+    return await res.json();
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Quản trị viên xử lý cấp mật khẩu mới hoặc từ chối yêu cầu
+ */
+export async function processPasswordResetByAdmin(params: {
+  requestId: string;
+  action: "approve" | "reject";
+  adminEmail?: string;
+  customPassword?: string;
+  adminNote?: string;
+}): Promise<{ success: boolean; newPassword?: string; message?: string; error?: string }> {
+  try {
+    const res = await fetch("/api/admin/password-resets", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      return { success: false, error: data.error || "Không thể xử lý yêu cầu." };
+    }
+
+    return {
+      success: true,
+      newPassword: data.newPassword,
+      message: data.message,
+    };
+  } catch {
+    return { success: false, error: "Lỗi kết nối máy chủ khi xử lý yêu cầu." };
+  }
+}

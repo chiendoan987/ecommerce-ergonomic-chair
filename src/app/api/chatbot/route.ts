@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     console.error("Lỗi POST /api/chatbot:", error);
     return NextResponse.json(
       {
-        message: "Xin lỗi bạn, ErgoBot đang gặp gián đoạn tạm thời. Vui lòng liên hệ Hotline 1800 6868 hoặc thử lại sau giây lát nhé! 🪑",
+        message: "Xin lỗi bạn, ErgoBot đang gặp gián đoạn tạm thời. Vui lòng liên hệ Hotline 0989 608 685 hoặc thử lại sau giây lát nhé! 🪑",
         engine: "database_fallback",
         suggestedProducts: [],
       },

@@ -45,7 +45,7 @@ export async function POST(request: Request) {
       items: items.map((i) => ({
         product: i.product as unknown as Product,
         quantity: i.quantity,
-        variantId: i.variantId,
+        variantId: i.variantId || undefined,
       })),
       shippingAddress,
       paymentMethod,

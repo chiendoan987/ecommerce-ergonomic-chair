@@ -115,9 +115,11 @@ export function ProductDetailClient({ initialProduct, initialRelated }: ProductD
                 )
               ) : (
                 <>
-                  <span className={product.inStock ? "stock-badge" : "stock-badge sold-out"}>
-                    {product.inStock ? "Còn hàng" : "Tạm hết hàng"}
-                  </span>
+                  {!product.inStock && (
+                    <span className="stock-badge sold-out">
+                      Tạm hết hàng
+                    </span>
+                  )}
                   <button
                     type="button"
                     className={`detail-wishlist-toggle ${isWishlisted ? "active" : ""}`}

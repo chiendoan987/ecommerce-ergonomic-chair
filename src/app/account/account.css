@@ -873,3 +873,184 @@
 .profile-actions {
   margin-top: 10px;
 }
+
+/* 8. Guest & Unauthenticated Orders View */
+.guest-orders-view {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.guest-orders-header {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.guest-orders-header h1 {
+  font-size: clamp(26px, 3.2vw, 34px);
+  font-weight: 700;
+  color: #171717;
+  margin: 0 0 10px;
+}
+
+.guest-orders-header p {
+  font-size: 14.5px;
+  color: #666;
+  max-width: 600px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+.order-lookup-box {
+  background: #ffffff;
+  border: 1px solid #ede5d8;
+  border-radius: 14px;
+  padding: 22px 24px;
+  margin-bottom: 28px;
+  box-shadow: 0 4px 18px rgba(139, 115, 85, 0.05);
+}
+
+.order-lookup-form {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+@media (max-width: 640px) {
+  .order-lookup-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+.order-lookup-input-wrap {
+  flex: 1;
+  position: relative;
+}
+
+.order-lookup-input {
+  width: 100%;
+  border: 1.5px solid #dcd5ca;
+  border-radius: 9px;
+  padding: 12px 16px 12px 40px;
+  font-size: 14.5px;
+  font-family: inherit;
+  outline: none;
+  background: #faf8f5;
+  color: #171717;
+  transition: all 0.2s ease;
+}
+
+.order-lookup-input:focus {
+  border-color: #8b7355;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(139, 115, 85, 0.12);
+}
+
+.order-lookup-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 16px;
+  color: #8c8276;
+  pointer-events: none;
+}
+
+.order-lookup-btn {
+  padding: 12px 26px;
+  font-size: 14.5px;
+  font-weight: 600;
+  background: #8b7355;
+  color: #fff;
+  border: none;
+  border-radius: 9px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s ease;
+}
+
+.order-lookup-btn:hover:not(:disabled) {
+  background: #756146;
+}
+
+.order-lookup-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.order-lookup-hints {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed #ede5d8;
+  font-size: 12.5px;
+  color: #786e63;
+}
+
+.order-lookup-quick-chip {
+  background: #f4ede3;
+  color: #8b7355;
+  border: 1px solid #e5d8c6;
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s ease;
+}
+
+.order-lookup-quick-chip:hover {
+  background: #8b7355;
+  color: #fff;
+}
+
+.guest-account-sync-banner {
+  margin-top: 32px;
+  background: #faf8f5;
+  border: 1px dashed #dcd5ca;
+  border-radius: 12px;
+  padding: 18px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+@media (max-width: 640px) {
+  .guest-account-sync-banner {
+    flex-direction: column;
+    text-align: center;
+  }
+}
+
+.guest-account-sync-banner p {
+  margin: 0;
+  font-size: 13.5px;
+  color: #555;
+  line-height: 1.5;
+}
+
+.guest-account-sync-banner strong {
+  color: #171717;
+}
+
+.order-highlight-banner {
+  background: #fdfaf5;
+  border: 1px solid #edd9bf;
+  border-radius: 10px;
+  padding: 12px 18px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13.5px;
+  color: #8b7355;
+}
+
