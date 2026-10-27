@@ -1,0 +1,90 @@
+@startuml
+!theme plain
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 12
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam roundCorner 8
+left to right direction
+
+skinparam actor {
+    BackgroundColor #FEF3C7
+    BorderColor #D97706
+    FontColor #1E293B
+    FontStyle bold
+}
+
+skinparam usecase {
+    BackgroundColor #EFF6FF
+    BorderColor #2563EB
+    BorderThickness 1.2
+    FontColor #0F172A
+    ArrowColor #2563EB
+}
+
+skinparam rectangle {
+    BackgroundColor #F8FAFC
+    BorderColor #64748B
+    FontColor #0F172A
+    FontStyle bold
+}
+
+skinparam note {
+    BackgroundColor #FFFBEB
+    BorderColor #F59E0B
+    FontColor #92400E
+    FontSize 11
+}
+
+
+title USE CASE UC-06: THỰC HIỆN ĐẶT HÀNG & CHECKOUT
+
+actor "Khách vãng lai" as Guest
+actor "Khách hàng thành viên" as Customer
+actor "Cổng thanh toán trực tuyến" as PG <<system>>
+
+Customer --|> Guest : <<generalization>>
+
+rectangle "Hệ Thống Storefront (Checkout & Order Flow)" {
+    usecase "UC-06: Thực hiện đặt hàng (Checkout)" as UC06
+    usecase "Nhập thông tin giao hàng chuẩn VN" as Sub_ShippingInfo
+    usecase "Tự động điền từ Sổ địa chỉ" as Sub_AutoFill
+    usecase "Chọn phương thức vận chuyển" as Sub_ShippingMethod
+    usecase "Chọn hình thức thanh toán" as Sub_PaymentMethod
+    usecase "Áp dụng mã giảm giá (Coupon)" as Sub_Coupon
+    usecase "Tạo đơn hàng & Trừ kho (POST /api/orders)" as Sub_CreateOrder
+    usecase "UC-07: Thanh toán trực tuyến Sandbox" as UC07
+}
+
+Guest --> UC06
+Customer --> UC06
+
+UC06 .> Sub_ShippingInfo : <<include>>
+UC06 .> Sub_ShippingMethod : <<include>>
+UC06 .> Sub_PaymentMethod : <<include>>
+UC06 .> Sub_CreateOrder : <<include>>
+
+Sub_AutoFill .> Sub_ShippingInfo : <<extend>>
+Sub_Coupon .> UC06 : <<extend>>
+UC07 .> UC06 : <<extend>>
+UC07 --> PG
+
+note right of Sub_AutoFill
+  Chỉ khả dụng đối với
+  Khách hàng thành viên đã đăng nhập
+end note
+
+note right of Sub_ShippingMethod
+  3 gói cước:
+  - Tiêu chuẩn (30.000đ)
+  - Hỏa tốc 2H (60.000đ)
+  - ErgoCare lắp đặt tận phòng
+end note
+
+note right of Sub_PaymentMethod
+  4 hình thức:
+  - COD (nhận hàng thanh toán)
+  - VietQR / VNPAY / MoMo
+end note
+
+@enduml

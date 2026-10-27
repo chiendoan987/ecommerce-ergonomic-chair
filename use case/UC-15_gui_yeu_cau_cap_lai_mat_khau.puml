@@ -1,0 +1,70 @@
+@startuml
+!theme plain
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 12
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam roundCorner 8
+left to right direction
+
+skinparam actor {
+    BackgroundColor #FEF3C7
+    BorderColor #D97706
+    FontColor #1E293B
+    FontStyle bold
+}
+
+skinparam usecase {
+    BackgroundColor #EFF6FF
+    BorderColor #2563EB
+    BorderThickness 1.2
+    FontColor #0F172A
+    ArrowColor #2563EB
+}
+
+skinparam rectangle {
+    BackgroundColor #F8FAFC
+    BorderColor #64748B
+    FontColor #0F172A
+    FontStyle bold
+}
+
+skinparam note {
+    BackgroundColor #FFFBEB
+    BorderColor #F59E0B
+    FontColor #92400E
+    FontSize 11
+}
+
+
+title USE CASE UC-15: GỬI YÊU CẦU CẤP LẠI MẬT KHẨU
+
+actor "Khách vãng lai / Thành viên" as User
+actor "Quản trị viên" as Admin
+
+rectangle "Hệ Thống Storefront & Backend" {
+    usecase "UC-15: Gửi yêu cầu cấp lại mật khẩu" as UC15
+    usecase "Nhập Email & Số điện thoại đã đăng ký" as Sub_Input
+    usecase "Nhập lý do / ghi chú hỗ trợ" as Sub_Note
+    usecase "Kiểm tra tồn tại tài khoản trong DB" as Sub_CheckUser
+    usecase "Khởi tạo phiếu PasswordResetRequest (status: pending)" as Sub_CreateTicket
+    usecase "UC-AD11: Admin xử lý phiếu cấp mật khẩu" as AD11
+}
+
+User --> UC15
+Admin --> AD11
+
+UC15 .> Sub_Input : <<include>>
+UC15 .> Sub_Note : <<include>>
+UC15 .> Sub_CheckUser : <<include>>
+UC15 .> Sub_CreateTicket : <<include>>
+
+AD11 .> Sub_CreateTicket : <<include>>
+
+note right of Sub_CreateTicket
+  Phiếu được ghi vào bảng
+  PasswordResetRequest để
+  Admin duyệt và cấp mật khẩu mới
+end note
+
+@enduml

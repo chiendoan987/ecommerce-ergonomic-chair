@@ -1,0 +1,75 @@
+@startuml
+!theme plain
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 12
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam roundCorner 8
+left to right direction
+
+skinparam actor {
+    BackgroundColor #FEF3C7
+    BorderColor #D97706
+    FontColor #1E293B
+    FontStyle bold
+}
+
+skinparam usecase {
+    BackgroundColor #EFF6FF
+    BorderColor #2563EB
+    BorderThickness 1.2
+    FontColor #0F172A
+    ArrowColor #2563EB
+}
+
+skinparam rectangle {
+    BackgroundColor #F8FAFC
+    BorderColor #64748B
+    FontColor #0F172A
+    FontStyle bold
+}
+
+skinparam note {
+    BackgroundColor #FFFBEB
+    BorderColor #F59E0B
+    FontColor #92400E
+    FontSize 11
+}
+
+
+title USE CASE UC-02: TÌM KIẾM & LỌC ĐA TIÊU CHÍ
+
+actor "Khách vãng lai" as Guest
+actor "Khách hàng thành viên" as Customer
+
+Customer --|> Guest : <<generalization>>
+
+rectangle "Hệ Thống Storefront (Search & Filter Engine)" {
+    usecase "UC-02: Tìm kiếm & Lọc sản phẩm" as UC02
+    usecase "Tìm kiếm tiếng Việt không dấu" as Sub_SearchText
+    usecase "Lọc theo 4 khoảng giá" as Sub_FilterPrice
+    usecase "Lọc theo trạng thái tồn kho" as Sub_FilterStock
+    usecase "Sắp xếp theo giá / đánh giá sao" as Sub_Sort
+    usecase "Đồng bộ bộ lọc lên URL Params" as Sub_URLSync
+}
+
+Guest --> UC02
+
+UC02 .> Sub_SearchText : <<include>>
+UC02 .> Sub_URLSync : <<include>>
+Sub_FilterPrice .> UC02 : <<extend>>
+Sub_FilterStock .> UC02 : <<extend>>
+Sub_Sort .> UC02 : <<extend>>
+
+note right of Sub_SearchText
+  Chuẩn hóa chuỗi tìm kiếm tức thì:
+  loại bỏ dấu thanh, đ/Đ -> d,
+  phản hồi ngay trong < 100ms
+end note
+
+note right of Sub_URLSync
+  Lưu trạng thái lọc vào URL
+  qua replaceState, không reload trang
+end note
+
+@enduml

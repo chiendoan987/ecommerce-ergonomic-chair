@@ -1,0 +1,67 @@
+@startuml
+!theme plain
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 12
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam roundCorner 8
+left to right direction
+
+skinparam actor {
+    BackgroundColor #FEF3C7
+    BorderColor #D97706
+    FontColor #1E293B
+    FontStyle bold
+}
+
+skinparam usecase {
+    BackgroundColor #EFF6FF
+    BorderColor #2563EB
+    BorderThickness 1.2
+    FontColor #0F172A
+    ArrowColor #2563EB
+}
+
+skinparam rectangle {
+    BackgroundColor #F8FAFC
+    BorderColor #64748B
+    FontColor #0F172A
+    FontStyle bold
+}
+
+skinparam note {
+    BackgroundColor #FFFBEB
+    BorderColor #F59E0B
+    FontColor #92400E
+    FontSize 11
+}
+
+
+title USE CASE UC-14: ĐỔI MẬT KHẨU CÁ NHÂN
+
+actor "Khách hàng thành viên" as Customer
+
+rectangle "Hệ Thống Storefront (Security Settings)" {
+    usecase "UC-14: Đổi mật khẩu cá nhân" as UC14
+    usecase "Nhập mật khẩu hiện tại" as Sub_CurrentPass
+    usecase "Xác thực mật khẩu cũ qua PBKDF2" as Sub_VerifyCurrent
+    usecase "Nhập mật khẩu mới (tối thiểu 6 ký tự)" as Sub_NewPass
+    usecase "Băm & Lưu mật khẩu mới (BR-02)" as Sub_HashNewPass
+    usecase "Thông báo cập nhật thành công" as Sub_Success
+}
+
+Customer --> UC14
+
+UC14 .> Sub_CurrentPass : <<include>>
+UC14 .> Sub_VerifyCurrent : <<include>>
+UC14 .> Sub_NewPass : <<include>>
+UC14 .> Sub_HashNewPass : <<include>>
+UC14 .> Sub_Success : <<include>>
+
+note right of Sub_VerifyCurrent
+  Nếu mật khẩu hiện tại sai,
+  hệ thống từ chối đổi mật khẩu
+  và báo lỗi lập tức
+end note
+
+@enduml

@@ -1,0 +1,72 @@
+@startuml
+!theme plain
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 12
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam roundCorner 8
+left to right direction
+
+skinparam actor {
+    BackgroundColor #FEF3C7
+    BorderColor #D97706
+    FontColor #1E293B
+    FontStyle bold
+}
+
+skinparam usecase {
+    BackgroundColor #EFF6FF
+    BorderColor #2563EB
+    BorderThickness 1.2
+    FontColor #0F172A
+    ArrowColor #2563EB
+}
+
+skinparam rectangle {
+    BackgroundColor #F8FAFC
+    BorderColor #64748B
+    FontColor #0F172A
+    FontStyle bold
+}
+
+skinparam note {
+    BackgroundColor #FFFBEB
+    BorderColor #F59E0B
+    FontColor #92400E
+    FontSize 11
+}
+
+
+title USE CASE UC-AD05: QUẢN LÝ TIẾN ĐỘ ĐƠN HÀNG
+
+actor "Quản trị viên" as Admin
+actor "Đơn vị vận chuyển" as Shipper <<system>>
+
+rectangle "Phân Hệ Quản Trị (Order & Logistics Operations)" {
+    usecase "UC-AD05: Quản lý tiến độ đơn hàng" as AD05
+    usecase "Lọc đơn theo 5 trạng thái vòng đời" as Sub_FilterStatus
+    usecase "Cập nhật nhanh trạng thái qua Dropdown" as Sub_QuickSwitch
+    usecase "Xem modal chi tiết đơn hàng toàn diện" as Sub_OrderDetail
+    usecase "In phiếu đơn hàng / xuất phiếu giao vận" as Sub_PrintInvoice
+    usecase "Tuân thủ quy tắc chuyển trạng thái một chiều (BR-05)" as Sub_EnforceBR05
+    usecase "Gán mã vận đơn GHTK / Viettel Post" as Sub_AssignTracking
+}
+
+Admin --> AD05
+Shipper --> Sub_AssignTracking
+
+AD05 .> Sub_FilterStatus : <<include>>
+AD05 .> Sub_OrderDetail : <<include>>
+AD05 .> Sub_QuickSwitch : <<include>>
+Sub_QuickSwitch .> Sub_EnforceBR05 : <<include>>
+
+Sub_PrintInvoice .> Sub_OrderDetail : <<extend>>
+Sub_AssignTracking .> Sub_OrderDetail : <<extend>>
+
+note right of Sub_EnforceBR05
+  BR-05: Trạng thái di chuyển theo chiều:
+  pending -> processing -> shipped -> completed.
+  Đơn cancelled không được khôi phục.
+end note
+
+@enduml

@@ -1,0 +1,77 @@
+@startuml
+!theme plain
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 12
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam roundCorner 8
+left to right direction
+
+skinparam actor {
+    BackgroundColor #FEF3C7
+    BorderColor #D97706
+    FontColor #1E293B
+    FontStyle bold
+}
+
+skinparam usecase {
+    BackgroundColor #EFF6FF
+    BorderColor #2563EB
+    BorderThickness 1.2
+    FontColor #0F172A
+    ArrowColor #2563EB
+}
+
+skinparam rectangle {
+    BackgroundColor #F8FAFC
+    BorderColor #64748B
+    FontColor #0F172A
+    FontStyle bold
+}
+
+skinparam note {
+    BackgroundColor #FFFBEB
+    BorderColor #F59E0B
+    FontColor #92400E
+    FontSize 11
+}
+
+
+title USE CASE UC-03: XEM CHI TIẾT & TƯƠNG TÁC SẢN PHẨM
+
+actor "Khách vãng lai" as Guest
+actor "Khách hàng thành viên" as Customer
+
+Customer --|> Guest : <<generalization>>
+
+rectangle "Hệ Thống Storefront (Product Detail Page)" {
+    usecase "UC-03: Xem chi tiết sản phẩm" as UC03
+    usecase "Xem bộ sưu tập 5 ảnh (Gallery)" as Sub_Gallery
+    usecase "Xem bảng thông số kỹ thuật (Specs)" as Sub_Specs
+    usecase "Xem video giới thiệu ghế" as Sub_Video
+    usecase "Kiểm tra khóa tồn kho (Stock Guard)" as Sub_StockGuard
+    usecase "Tự động ghi nhận sản phẩm vừa xem" as Sub_Recent
+    usecase "UC-04: Thêm vào yêu thích" as UC04
+    usecase "UC-05: Thêm vào giỏ hàng" as UC05
+    usecase "Chuyển hướng tư vấn (khi hết hàng)" as Sub_Contact
+}
+
+Guest --> UC03
+
+UC03 .> Sub_Gallery : <<include>>
+UC03 .> Sub_Specs : <<include>>
+UC03 .> Sub_StockGuard : <<include>>
+UC03 .> Sub_Recent : <<include>>
+
+Sub_Video .> UC03 : <<extend>>
+UC04 .> UC03 : <<extend>>
+UC05 .> UC03 : <<extend>>
+Sub_Contact .> Sub_StockGuard : <<extend>>
+
+note right of Sub_StockGuard
+  BR-01: Nếu stockQuantity = 0:
+  - Khóa ô số lượng và nút mua
+  - Hiện nút "Liên hệ tư vấn"
+end note
+
+@enduml

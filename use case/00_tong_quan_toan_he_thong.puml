@@ -1,0 +1,113 @@
+@startuml
+!theme plain
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 12
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam roundCorner 8
+left to right direction
+
+skinparam actor {
+    BackgroundColor #FEF3C7
+    BorderColor #D97706
+    FontColor #1E293B
+    FontStyle bold
+}
+
+skinparam usecase {
+    BackgroundColor #EFF6FF
+    BorderColor #2563EB
+    BorderThickness 1.2
+    FontColor #0F172A
+    ArrowColor #2563EB
+}
+
+skinparam rectangle {
+    BackgroundColor #F8FAFC
+    BorderColor #64748B
+    FontColor #0F172A
+    FontStyle bold
+}
+
+skinparam note {
+    BackgroundColor #FFFBEB
+    BorderColor #F59E0B
+    FontColor #92400E
+    FontSize 11
+}
+
+
+title SƠ ĐỒ USE CASE TỔNG THỂ TOÀN HỆ THỐNG E-COMMERCE ERGOCHAIR
+
+' === ACTORS ===
+actor "Khách vãng lai\n(Guest User)" as Guest
+actor "Khách hàng thành viên\n(Registered Customer)" as Customer
+actor "Quản trị viên\n(System Admin)" as Admin
+actor "Cổng thanh toán\n(VNPay / VietQR)" as PaymentGateway <<system>>
+actor "Hệ thống AI LLM\n(Groq API)" as GroqAI <<system>>
+
+Customer --|> Guest : <<generalization>>
+
+rectangle "Nền tảng E-Commerce Ghế Công Thái Học ErgoChair" {
+    package "Phân hệ Khách hàng (Storefront)" {
+        usecase "UC01 - Duyệt & Tìm kiếm sản phẩm" as UC_Catalog
+        usecase "UC02 - Xem chi tiết & Tương tác ghế" as UC_Detail
+        usecase "UC03 - Quản lý Giỏ hàng & Wishlist" as UC_CartWishlist
+        usecase "UC04 - Đặt hàng & Thanh toán" as UC_Checkout
+        usecase "UC05 - Tra cứu đơn hàng công khai" as UC_Tracking
+        usecase "UC06 - Đánh giá & Nhận xét" as UC_Review
+        usecase "UC07 - Đăng ký / Đăng nhập tài khoản" as UC_Auth
+        usecase "UC08 - Quản lý Hồ sơ & Sổ địa chỉ" as UC_Profile
+        usecase "UC09 - Xem lịch sử đơn hàng cá nhân" as UC_OrderHistory
+        usecase "UC10 - Trò chuyện với Trợ lý AI ErgoBot" as UC_AIBot
+        usecase "UC11 - Gửi phiếu quên mật khẩu" as UC_ForgotPass
+    }
+
+    package "Phân hệ Quản trị viên (Admin Portal)" {
+        usecase "UC-AD01 - Giám sát Dashboard KPI & Doanh thu" as AD_Dashboard
+        usecase "UC-AD02 - Quản lý Sản phẩm (CRUD & Tồn kho)" as AD_Product
+        usecase "UC-AD03 - Quản lý Danh mục hàng hóa" as AD_Category
+        usecase "UC-AD04 - Quản lý Vận đơn & Trạng thái đơn" as AD_Order
+        usecase "UC-AD05 - Quản lý Khách hàng & CLV" as AD_Customer
+        usecase "UC-AD06 - Quản lý Tài khoản & Phân quyền" as AD_User
+        usecase "UC-AD07 - Xử lý Hàng đợi cấp lại mật khẩu" as AD_ResetQueue
+        usecase "UC-AD08 - Quản lý Tệp tin đa phương tiện" as AD_Media
+    }
+}
+
+' === GUEST & CUSTOMER ASSOCIATIONS ===
+Guest --> UC_Catalog
+Guest --> UC_Detail
+Guest --> UC_CartWishlist
+Guest --> UC_Checkout
+Guest --> UC_Tracking
+Guest --> UC_Review
+Guest --> UC_Auth
+Guest --> UC_ForgotPass
+Guest --> UC_AIBot
+
+Customer --> UC_Profile
+Customer --> UC_OrderHistory
+
+' === EXTERNAL SYSTEM INTERACTIONS ===
+UC_Checkout --> PaymentGateway
+UC_AIBot --> GroqAI
+
+' === ADMIN ASSOCIATIONS ===
+Admin --> AD_Dashboard
+Admin --> AD_Product
+Admin --> AD_Category
+Admin --> AD_Order
+Admin --> AD_Customer
+Admin --> AD_User
+Admin --> AD_ResetQueue
+Admin --> AD_Media
+
+note bottom of Customer
+  Khách hàng thành viên thừa hưởng
+  toàn bộ chức năng của Khách vãng lai,
+  đồng thời có thêm quyền quản lý hồ sơ,
+  sổ địa chỉ và lịch sử đơn hàng.
+end note
+
+@enduml

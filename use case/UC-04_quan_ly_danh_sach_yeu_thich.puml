@@ -1,0 +1,73 @@
+@startuml
+!theme plain
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 12
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam roundCorner 8
+left to right direction
+
+skinparam actor {
+    BackgroundColor #FEF3C7
+    BorderColor #D97706
+    FontColor #1E293B
+    FontStyle bold
+}
+
+skinparam usecase {
+    BackgroundColor #EFF6FF
+    BorderColor #2563EB
+    BorderThickness 1.2
+    FontColor #0F172A
+    ArrowColor #2563EB
+}
+
+skinparam rectangle {
+    BackgroundColor #F8FAFC
+    BorderColor #64748B
+    FontColor #0F172A
+    FontStyle bold
+}
+
+skinparam note {
+    BackgroundColor #FFFBEB
+    BorderColor #F59E0B
+    FontColor #92400E
+    FontSize 11
+}
+
+
+title USE CASE UC-04: QUẢN LÝ DANH SÁCH YÊU THÍCH (WISHLIST)
+
+actor "Khách vãng lai" as Guest
+actor "Khách hàng thành viên" as Customer
+
+Customer --|> Guest : <<generalization>>
+
+rectangle "Hệ Thống Storefront (Wishlist Management)" {
+    usecase "UC-04: Quản lý danh sách yêu thích" as UC04
+    usecase "Thêm ghế vào danh sách yêu thích" as Sub_Add
+    usecase "Bỏ ghế khỏi danh sách yêu thích" as Sub_Remove
+    usecase "Xem trang danh sách yêu thích" as Sub_View
+    usecase "Chuyển nhanh ghế vào giỏ hàng" as Sub_MoveToCart
+    usecase "Xóa toàn bộ danh sách yêu thích" as Sub_ClearAll
+    usecase "Đồng bộ bộ nhớ LocalStorage" as Sub_Storage
+}
+
+Guest --> UC04
+
+UC04 .> Sub_Add : <<include>>
+UC04 .> Sub_Remove : <<include>>
+UC04 .> Sub_View : <<include>>
+UC04 .> Sub_Storage : <<include>>
+
+Sub_MoveToCart .> Sub_View : <<extend>>
+Sub_ClearAll .> Sub_View : <<extend>>
+
+note right of Sub_Storage
+  Lưu trữ liên tục trong
+  localStorage key 'ergochair-wishlist'
+  bảo toàn dữ liệu khi F5
+end note
+
+@enduml

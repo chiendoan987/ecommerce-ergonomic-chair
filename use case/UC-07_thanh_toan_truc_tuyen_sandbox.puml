@@ -1,0 +1,76 @@
+@startuml
+!theme plain
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 12
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam roundCorner 8
+left to right direction
+
+skinparam actor {
+    BackgroundColor #FEF3C7
+    BorderColor #D97706
+    FontColor #1E293B
+    FontStyle bold
+}
+
+skinparam usecase {
+    BackgroundColor #EFF6FF
+    BorderColor #2563EB
+    BorderThickness 1.2
+    FontColor #0F172A
+    ArrowColor #2563EB
+}
+
+skinparam rectangle {
+    BackgroundColor #F8FAFC
+    BorderColor #64748B
+    FontColor #0F172A
+    FontStyle bold
+}
+
+skinparam note {
+    BackgroundColor #FFFBEB
+    BorderColor #F59E0B
+    FontColor #92400E
+    FontSize 11
+}
+
+
+title USE CASE UC-07: CỔNG THANH TOÁN TRỰC TUYẾN GIẢ LẬP (SANDBOX)
+
+actor "Khách hàng" as User
+actor "Cổng đối soát thanh toán" as PaymentGateway <<system>>
+
+rectangle "Hệ Thống Storefront (Payment Gateway Sandbox)" {
+    usecase "UC-07: Thanh toán trực tuyến Sandbox" as UC07
+    usecase "Thanh toán quét mã VietQR" as Pay_VietQR
+    usecase "Thanh toán cổng VNPAY-QR" as Pay_VNPay
+    usecase "Thanh toán Ví điện tử MoMo" as Pay_MoMo
+    usecase "Xác nhận đã thanh toán thành công" as Sub_Success
+    usecase "Hủy / Báo lỗi thanh toán thất bại" as Sub_Fail
+    usecase "Cập nhật paymentStatus = 'paid'" as Sub_UpdateDB
+}
+
+User --> UC07
+PaymentGateway --> Sub_UpdateDB
+
+Pay_VietQR --|> UC07 : <<generalization>>
+Pay_VNPay --|> UC07 : <<generalization>>
+Pay_MoMo --|> UC07 : <<generalization>>
+
+UC07 .> Sub_Success : <<include>>
+Sub_Success .> Sub_UpdateDB : <<include>>
+Sub_Fail .> UC07 : <<extend>>
+
+note right of Sub_Success
+  Gọi API PATCH /api/orders/[id]/pay
+  Chuyển sang trang /order-success
+end note
+
+note right of Sub_Fail
+  Cho phép người dùng chọn lại
+  phương thức thanh toán khác
+end note
+
+@enduml

@@ -1,0 +1,73 @@
+@startuml
+!theme plain
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 12
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam roundCorner 8
+left to right direction
+
+skinparam actor {
+    BackgroundColor #FEF3C7
+    BorderColor #D97706
+    FontColor #1E293B
+    FontStyle bold
+}
+
+skinparam usecase {
+    BackgroundColor #EFF6FF
+    BorderColor #2563EB
+    BorderThickness 1.2
+    FontColor #0F172A
+    ArrowColor #2563EB
+}
+
+skinparam rectangle {
+    BackgroundColor #F8FAFC
+    BorderColor #64748B
+    FontColor #0F172A
+    FontStyle bold
+}
+
+skinparam note {
+    BackgroundColor #FFFBEB
+    BorderColor #F59E0B
+    FontColor #92400E
+    FontSize 11
+}
+
+
+title USE CASE UC-16: TRỢ LÝ ẢO AI ERGOBOT (RAG & FALLBACK)
+
+actor "Người dùng" as User
+actor "Groq AI LLM Service" as GroqAPI <<system>>
+
+rectangle "Hệ Thống Trợ Lý Ảo (AI ErgoBot Widget)" {
+    usecase "UC-16: Chat tư vấn với AI ErgoBot" as UC16
+    usecase "Phân loại 8 ý định người dùng (RAG Classifier)" as Sub_Classify
+    usecase "Tư vấn chọn ghế theo chiều cao & cân nặng" as Sub_Recommend
+    usecase "Tra cứu đơn hàng tự động qua AI" as Sub_TrackAI
+    usecase "Hỏi chính sách bảo hành, đổi trả, ship" as Sub_Policy
+    usecase "Kích hoạt Heuristic Fallback khi Timeout (BR-06)" as Sub_Fallback
+    usecase "Hiển thị thẻ sản phẩm tương tác (Product Card)" as Sub_ProductCard
+}
+
+User --> UC16
+
+UC16 .> Sub_Classify : <<include>>
+Sub_Recommend .> UC16 : <<extend>>
+Sub_TrackAI .> UC16 : <<extend>>
+Sub_Policy .> UC16 : <<extend>>
+
+Sub_Classify --> GroqAPI
+Sub_Fallback .> Sub_Classify : <<extend>>
+Sub_ProductCard .> Sub_Recommend : <<extend>>
+
+note right of Sub_Fallback
+  BR-06: Timeout Groq API > 3.5s
+  hoặc lỗi kết nối mạng ->
+  Tự động kích hoạt bộ Regex Fallback
+  nội bộ, đảm bảo 100% phản hồi.
+end note
+
+@enduml

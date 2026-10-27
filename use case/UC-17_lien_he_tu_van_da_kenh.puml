@@ -1,0 +1,68 @@
+@startuml
+!theme plain
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 12
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam roundCorner 8
+left to right direction
+
+skinparam actor {
+    BackgroundColor #FEF3C7
+    BorderColor #D97706
+    FontColor #1E293B
+    FontStyle bold
+}
+
+skinparam usecase {
+    BackgroundColor #EFF6FF
+    BorderColor #2563EB
+    BorderThickness 1.2
+    FontColor #0F172A
+    ArrowColor #2563EB
+}
+
+skinparam rectangle {
+    BackgroundColor #F8FAFC
+    BorderColor #64748B
+    FontColor #0F172A
+    FontStyle bold
+}
+
+skinparam note {
+    BackgroundColor #FFFBEB
+    BorderColor #F59E0B
+    FontColor #92400E
+    FontSize 11
+}
+
+
+title USE CASE UC-17: KÊNH LIÊN HỆ TƯ VẤN ĐA KÊNH
+
+actor "Khách hàng" as Customer
+
+rectangle "Hệ Thống Storefront (Omnichannel Contact)" {
+    usecase "UC-17: Kênh liên hệ tư vấn đa kênh" as UC17
+    usecase "Gọi điện thoại trực tiếp Hotline" as Contact_Hotline
+    usecase "Mở kết nối chat Zalo Official Account" as Contact_Zalo
+    usecase "Mở chat Facebook Messenger Fanpage" as Contact_Messenger
+    usecase "Gửi biểu mẫu liên hệ trực tuyến (/contact)" as Contact_Form
+    usecase "Xem bản đồ chỉ đường & Địa chỉ Showroom" as Contact_Showroom
+}
+
+Customer --> UC17
+
+Contact_Hotline --|> UC17 : <<generalization>>
+Contact_Zalo --|> UC17 : <<generalization>>
+Contact_Messenger --|> UC17 : <<generalization>>
+Contact_Form --|> UC17 : <<generalization>>
+
+UC17 .> Contact_Showroom : <<include>>
+
+note right of Contact_Hotline
+  Tích hợp Floating Contact Widget
+  ở góc màn hình cho phép gọi
+  hoặc nhắn tin chỉ với 1 click
+end note
+
+@enduml

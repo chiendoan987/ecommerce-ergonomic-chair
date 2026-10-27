@@ -1,0 +1,66 @@
+@startuml
+!theme plain
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 12
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam roundCorner 8
+left to right direction
+
+skinparam actor {
+    BackgroundColor #FEF3C7
+    BorderColor #D97706
+    FontColor #1E293B
+    FontStyle bold
+}
+
+skinparam usecase {
+    BackgroundColor #EFF6FF
+    BorderColor #2563EB
+    BorderThickness 1.2
+    FontColor #0F172A
+    ArrowColor #2563EB
+}
+
+skinparam rectangle {
+    BackgroundColor #F8FAFC
+    BorderColor #64748B
+    FontColor #0F172A
+    FontStyle bold
+}
+
+skinparam note {
+    BackgroundColor #FFFBEB
+    BorderColor #F59E0B
+    FontColor #92400E
+    FontSize 11
+}
+
+
+title USE CASE UC-AD08: KHÓA / MỞ KHÓA TÀI KHOẢN NGƯỜI DÙNG
+
+actor "Quản trị viên" as Admin
+
+rectangle "Phân Hệ Quản Trị (Account Access Control)" {
+    usecase "UC-AD08: Khóa / Mở khóa tài khoản người dùng" as AD08
+    usecase "Gạt công tắc chuyển đổi Active / Blocked" as Sub_ToggleStatus
+    usecase "Cập nhật status người dùng trong MySQL" as Sub_UpdateUserDB
+    usecase "Thu hồi phiên làm việc tức thời (BR-03)" as Sub_RevokeSession
+    usecase "Chặn đăng nhập ngay tại cổng API" as Sub_BlockAPI
+}
+
+Admin --> AD08
+
+AD08 .> Sub_ToggleStatus : <<include>>
+Sub_ToggleStatus .> Sub_UpdateUserDB : <<include>>
+Sub_UpdateUserDB .> Sub_RevokeSession : <<include>>
+Sub_UpdateUserDB .> Sub_BlockAPI : <<include>>
+
+note right of Sub_RevokeSession
+  BR-03: Khi tài khoản bị chuyển sang 'blocked':
+  Hệ thống lập tức từ chối API /api/auth/me,
+  buộc đăng xuất ngay lập tức
+  trên mọi thiết bị đang mở
+end note
+
+@enduml

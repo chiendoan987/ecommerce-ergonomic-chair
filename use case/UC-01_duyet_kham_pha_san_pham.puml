@@ -1,0 +1,75 @@
+@startuml
+!theme plain
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 12
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam roundCorner 8
+left to right direction
+
+skinparam actor {
+    BackgroundColor #FEF3C7
+    BorderColor #D97706
+    FontColor #1E293B
+    FontStyle bold
+}
+
+skinparam usecase {
+    BackgroundColor #EFF6FF
+    BorderColor #2563EB
+    BorderThickness 1.2
+    FontColor #0F172A
+    ArrowColor #2563EB
+}
+
+skinparam rectangle {
+    BackgroundColor #F8FAFC
+    BorderColor #64748B
+    FontColor #0F172A
+    FontStyle bold
+}
+
+skinparam note {
+    BackgroundColor #FFFBEB
+    BorderColor #F59E0B
+    FontColor #92400E
+    FontSize 11
+}
+
+
+title USE CASE UC-01: DUYỆT & KHÁM PHÁ SẢN PHẨM
+
+actor "Khách vãng lai" as Guest
+actor "Khách hàng thành viên" as Customer
+
+Customer --|> Guest : <<generalization>>
+
+rectangle "Hệ Thống Storefront (Catalog & Discovery)" {
+    usecase "UC-01: Duyệt & Khám phá sản phẩm" as UC01
+    usecase "Xem menu danh mục động" as Sub_Menu
+    usecase "Xem danh sách ghế theo danh mục" as Sub_List
+    usecase "Xem danh sách sản phẩm nổi bật" as Sub_Featured
+    usecase "Cuộn mượt mà có gia tốc (Custom Easing)" as Sub_Scroll
+    usecase "UC-03: Xem chi tiết sản phẩm" as UC03
+}
+
+Guest --> UC01
+
+UC01 .> Sub_Menu : <<include>>
+UC01 .> Sub_List : <<include>>
+UC01 .> Sub_Featured : <<include>>
+UC01 .> Sub_Scroll : <<include>>
+UC03 .> UC01 : <<extend>>
+
+note right of Sub_Scroll
+  Kích hoạt hiệu ứng cuộn mượt mà
+  easeInOutCubic (900ms) bù trừ
+  chiều cao Header (94px / 76px)
+end note
+
+note right of Sub_Menu
+  Tải động danh mục từ MySQL,
+  đồng bộ Custom Event Header
+end note
+
+@enduml

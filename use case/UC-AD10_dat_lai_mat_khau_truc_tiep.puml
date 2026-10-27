@@ -1,0 +1,67 @@
+@startuml
+!theme plain
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 12
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam roundCorner 8
+left to right direction
+
+skinparam actor {
+    BackgroundColor #FEF3C7
+    BorderColor #D97706
+    FontColor #1E293B
+    FontStyle bold
+}
+
+skinparam usecase {
+    BackgroundColor #EFF6FF
+    BorderColor #2563EB
+    BorderThickness 1.2
+    FontColor #0F172A
+    ArrowColor #2563EB
+}
+
+skinparam rectangle {
+    BackgroundColor #F8FAFC
+    BorderColor #64748B
+    FontColor #0F172A
+    FontStyle bold
+}
+
+skinparam note {
+    BackgroundColor #FFFBEB
+    BorderColor #F59E0B
+    FontColor #92400E
+    FontSize 11
+}
+
+
+title USE CASE UC-AD10: ĐẶT LẠI MẬT KHẨU TRỰC TIẾP
+
+actor "Quản trị viên" as Admin
+
+rectangle "Phân Hệ Quản Trị (Direct Password Reset)" {
+    usecase "UC-AD10: Đặt lại mật khẩu trực tiếp" as AD10
+    usecase "Chọn người dùng cần đặt lại mật khẩu" as Sub_SelectUser
+    usecase "Nhập mật khẩu mới chỉ định" as Sub_InputNewPass
+    usecase "Băm mật khẩu PBKDF2 SHA-512 (BR-02)" as Sub_HashPass
+    usecase "Cập nhật bản ghi mật khẩu trong MySQL" as Sub_UpdateUserPass
+    usecase "Ghi nhật ký thay đổi an ninh" as Sub_AuditLog
+}
+
+Admin --> AD10
+
+AD10 .> Sub_SelectUser : <<include>>
+AD10 .> Sub_InputNewPass : <<include>>
+AD10 .> Sub_HashPass : <<include>>
+AD10 .> Sub_UpdateUserPass : <<include>>
+AD10 .> Sub_AuditLog : <<include>>
+
+note right of Sub_InputNewPass
+  Phục vụ hỗ trợ khách hàng khẩn cấp
+  khi khách liên hệ qua hotline
+  hoặc đến trực tiếp showroom
+end note
+
+@enduml

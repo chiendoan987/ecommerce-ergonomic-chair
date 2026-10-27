@@ -1,0 +1,71 @@
+@startuml
+!theme plain
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 12
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam roundCorner 8
+left to right direction
+
+skinparam actor {
+    BackgroundColor #FEF3C7
+    BorderColor #D97706
+    FontColor #1E293B
+    FontStyle bold
+}
+
+skinparam usecase {
+    BackgroundColor #EFF6FF
+    BorderColor #2563EB
+    BorderThickness 1.2
+    FontColor #0F172A
+    ArrowColor #2563EB
+}
+
+skinparam rectangle {
+    BackgroundColor #F8FAFC
+    BorderColor #64748B
+    FontColor #0F172A
+    FontStyle bold
+}
+
+skinparam note {
+    BackgroundColor #FFFBEB
+    BorderColor #F59E0B
+    FontColor #92400E
+    FontSize 11
+}
+
+
+title USE CASE UC-AD03: BẬT/TẮT TỒN KHO TỨC THÌ (INSTANT TOGGLE)
+
+actor "Quản trị viên" as Admin
+
+rectangle "Phân Hệ Quản Trị (Product Stock Management)" {
+    usecase "UC-AD03: Bật/Tắt tồn kho tức thì" as AD03
+    usecase "Gạt công tắc InStock trên bảng danh sách" as Sub_ToggleSwitch
+    usecase "Gọi API PATCH /api/products/[id]" as Sub_CallAPI
+    usecase "Cập nhật trường inStock trong MySQL" as Sub_UpdateDB
+    usecase "Đồng bộ tức thì ra Storefront (Khóa/Mở mua)" as Sub_SyncStorefront
+}
+
+Admin --> AD03
+
+AD03 .> Sub_ToggleSwitch : <<include>>
+AD03 .> Sub_CallAPI : <<include>>
+AD03 .> Sub_UpdateDB : <<include>>
+AD03 .> Sub_SyncStorefront : <<include>>
+
+note right of Sub_ToggleSwitch
+  Thao tác 1-click trực tiếp
+  không cần mở modal chỉnh sửa,
+  phản hồi Optimistic UI mượt mà
+end note
+
+note right of Sub_SyncStorefront
+  Khi inStock = false:
+  Giao diện khách hàng tự động khóa mua
+  và chuyển sang nút Liên hệ tư vấn
+end note
+
+@enduml

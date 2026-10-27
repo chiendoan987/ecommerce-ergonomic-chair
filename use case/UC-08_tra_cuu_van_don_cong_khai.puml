@@ -1,0 +1,79 @@
+@startuml
+!theme plain
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 12
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam roundCorner 8
+left to right direction
+
+skinparam actor {
+    BackgroundColor #FEF3C7
+    BorderColor #D97706
+    FontColor #1E293B
+    FontStyle bold
+}
+
+skinparam usecase {
+    BackgroundColor #EFF6FF
+    BorderColor #2563EB
+    BorderThickness 1.2
+    FontColor #0F172A
+    ArrowColor #2563EB
+}
+
+skinparam rectangle {
+    BackgroundColor #F8FAFC
+    BorderColor #64748B
+    FontColor #0F172A
+    FontStyle bold
+}
+
+skinparam note {
+    BackgroundColor #FFFBEB
+    BorderColor #F59E0B
+    FontColor #92400E
+    FontSize 11
+}
+
+
+title USE CASE UC-08: TRA CỨU HÀNH TRÌNH ĐƠN HÀNG CÔNG KHAI
+
+actor "Khách vãng lai" as Guest
+actor "Khách hàng thành viên" as Customer
+
+Customer --|> Guest : <<generalization>>
+
+rectangle "Hệ Thống Storefront (Order Tracking Service)" {
+    usecase "UC-08: Tra cứu hành trình đơn hàng" as UC08
+    usecase "Tra cứu bằng Mã đơn hàng (ord-xxx)" as Search_OrderCode
+    usecase "Tra cứu bằng Mã vận đơn (GHTK-xxx)" as Search_TrackCode
+    usecase "Tra cứu bằng Số điện thoại nhận hàng" as Search_Phone
+    usecase "Hiển thị Timeline 5 mốc vận chuyển" as Sub_Timeline
+    usecase "Xem chi tiết kiện hàng & trạng thái thanh toán" as Sub_Detail
+}
+
+Guest --> UC08
+
+Search_OrderCode --|> UC08 : <<generalization>>
+Search_TrackCode --|> UC08 : <<generalization>>
+Search_Phone --|> UC08 : <<generalization>>
+
+UC08 .> Sub_Timeline : <<include>>
+UC08 .> Sub_Detail : <<include>>
+
+note right of Sub_Timeline
+  5 mốc vận đơn:
+  1. Đã tiếp nhận đơn
+  2. Đang đóng gói tại kho
+  3. Đang giao hàng
+  4. Giao hàng thành công
+  5. Đã hủy đơn
+end note
+
+note bottom of UC08
+  Tra cứu công khai không bắt buộc
+  đăng nhập, kết nối GET /api/orders/track
+end note
+
+@enduml

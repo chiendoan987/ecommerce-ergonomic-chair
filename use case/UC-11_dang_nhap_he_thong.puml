@@ -1,0 +1,81 @@
+@startuml
+!theme plain
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 12
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam roundCorner 8
+left to right direction
+
+skinparam actor {
+    BackgroundColor #FEF3C7
+    BorderColor #D97706
+    FontColor #1E293B
+    FontStyle bold
+}
+
+skinparam usecase {
+    BackgroundColor #EFF6FF
+    BorderColor #2563EB
+    BorderThickness 1.2
+    FontColor #0F172A
+    ArrowColor #2563EB
+}
+
+skinparam rectangle {
+    BackgroundColor #F8FAFC
+    BorderColor #64748B
+    FontColor #0F172A
+    FontStyle bold
+}
+
+skinparam note {
+    BackgroundColor #FFFBEB
+    BorderColor #F59E0B
+    FontColor #92400E
+    FontSize 11
+}
+
+
+title USE CASE UC-11: ĐĂNG NHẬP HỆ THỐNG
+
+actor "Người dùng" as User
+actor "Khách hàng" as Customer
+actor "Quản trị viên" as Admin
+
+Customer --|> User
+Admin --|> User
+
+rectangle "Hệ Thống Storefront (Authentication Flow)" {
+    usecase "UC-11: Đăng nhập hệ thống" as UC11
+    usecase "Nhập Email và Mật khẩu" as Sub_Input
+    usecase "Xác thực mã băm PBKDF2" as Sub_VerifyHash
+    usecase "Kiểm tra trạng thái tài khoản (BR-03)" as Sub_CheckBlocked
+    usecase "Khởi tạo phiên & lưu LocalStorage" as Sub_Session
+    usecase "Đồng bộ trạng thái phiên đa tab" as Sub_SyncTab
+    usecase "UC-15: Gửi yêu cầu cấp lại mật khẩu" as UC15
+}
+
+User --> UC11
+
+UC11 .> Sub_Input : <<include>>
+UC11 .> Sub_VerifyHash : <<include>>
+UC11 .> Sub_CheckBlocked : <<include>>
+UC11 .> Sub_Session : <<include>>
+UC11 .> Sub_SyncTab : <<include>>
+
+UC15 .> UC11 : <<extend>>
+
+note right of Sub_CheckBlocked
+  BR-03: Nếu status = 'blocked',
+  chặn đăng nhập ngay lập tức
+  và hiển thị thông báo lỗi
+end note
+
+note right of Sub_SyncTab
+  Phát Custom DOM Event:
+  ergochair-auth-change
+  để Header & Context cập nhật tức thì
+end note
+
+@enduml

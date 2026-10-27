@@ -1,0 +1,75 @@
+@startuml
+!theme plain
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 12
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam roundCorner 8
+left to right direction
+
+skinparam actor {
+    BackgroundColor #FEF3C7
+    BorderColor #D97706
+    FontColor #1E293B
+    FontStyle bold
+}
+
+skinparam usecase {
+    BackgroundColor #EFF6FF
+    BorderColor #2563EB
+    BorderThickness 1.2
+    FontColor #0F172A
+    ArrowColor #2563EB
+}
+
+skinparam rectangle {
+    BackgroundColor #F8FAFC
+    BorderColor #64748B
+    FontColor #0F172A
+    FontStyle bold
+}
+
+skinparam note {
+    BackgroundColor #FFFBEB
+    BorderColor #F59E0B
+    FontColor #92400E
+    FontSize 11
+}
+
+
+title USE CASE UC-09: ĐÁNH GIÁ & NHẬN XÉT SẢN PHẨM
+
+actor "Khách vãng lai" as Guest
+actor "Khách hàng thành viên" as Customer
+
+Customer --|> Guest : <<generalization>>
+
+rectangle "Hệ Thống Storefront (Product Reviews System)" {
+    usecase "UC-09: Gửi đánh giá nhận xét" as UC09
+    usecase "Xem điểm sao & nhận xét cộng đồng" as Sub_ViewReviews
+    usecase "Lọc nhận xét theo số sao (1 - 5 sao)" as Sub_FilterStars
+    usecase "Chọn số sao đánh giá (1 - 5)" as Sub_Rating
+    usecase "Viết nội dung cảm nhận thực tế" as Sub_Content
+    usecase "Gắn nhãn xác thực 'Đã mua hàng' (Verified Purchase)" as Sub_Verified
+    usecase "Lưu đánh giá vào bảng Review MySQL" as Sub_SaveDB
+}
+
+Guest --> Sub_ViewReviews
+Guest --> UC09
+Customer --> UC09
+
+Sub_ViewReviews .> Sub_FilterStars : <<extend>>
+
+UC09 .> Sub_Rating : <<include>>
+UC09 .> Sub_Content : <<include>>
+UC09 .> Sub_SaveDB : <<include>>
+
+Sub_Verified .> UC09 : <<extend>>
+
+note right of Sub_Verified
+  Hệ thống tự động kiểm tra:
+  nếu Customer đã có đơn hoàn tất
+  chứa ghế này -> cấp nhãn Verified
+end note
+
+@enduml

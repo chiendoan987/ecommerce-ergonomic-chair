@@ -1,0 +1,71 @@
+@startuml
+!theme plain
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 12
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam roundCorner 8
+left to right direction
+
+skinparam actor {
+    BackgroundColor #FEF3C7
+    BorderColor #D97706
+    FontColor #1E293B
+    FontStyle bold
+}
+
+skinparam usecase {
+    BackgroundColor #EFF6FF
+    BorderColor #2563EB
+    BorderThickness 1.2
+    FontColor #0F172A
+    ArrowColor #2563EB
+}
+
+skinparam rectangle {
+    BackgroundColor #F8FAFC
+    BorderColor #64748B
+    FontColor #0F172A
+    FontStyle bold
+}
+
+skinparam note {
+    BackgroundColor #FFFBEB
+    BorderColor #F59E0B
+    FontColor #92400E
+    FontSize 11
+}
+
+
+title USE CASE UC-AD09: QUẢN LÝ TÀI KHOẢN & PHÂN QUYỀN
+
+actor "Quản trị viên" as Admin
+
+rectangle "Phân Hệ Quản Trị (User & Role Management)" {
+    usecase "UC-AD09: Quản lý tài khoản & Phân quyền" as AD09
+    usecase "Xem danh sách tài khoản toàn hệ thống" as Sub_ListUsers
+    usecase "Tạo mới tài khoản nhân sự" as Sub_CreateUser
+    usecase "Phân quyền vai trò (Admin / Customer)" as Sub_AssignRole
+    usecase "Chỉnh sửa thông tin tài khoản" as Sub_EditUser
+    usecase "Xóa tài khoản nhân sự" as Sub_DeleteUser
+    usecase "Cơ chế bảo vệ Admin không tự xóa mình (BR-04)" as Sub_SelfDeleteGuard
+}
+
+Admin --> AD09
+
+AD09 .> Sub_ListUsers : <<include>>
+Sub_CreateUser .> AD09 : <<extend>>
+Sub_EditUser .> AD09 : <<extend>>
+Sub_DeleteUser .> AD09 : <<extend>>
+
+Sub_CreateUser .> Sub_AssignRole : <<include>>
+Sub_EditUser .> Sub_AssignRole : <<extend>>
+Sub_DeleteUser .> Sub_SelfDeleteGuard : <<include>>
+
+note right of Sub_SelfDeleteGuard
+  BR-04: Hệ thống chặn tuyệt đối
+  hành vi Admin tự xóa tài khoản chính mình,
+  bảo vệ an toàn quyền quản trị tối cao
+end note
+
+@enduml

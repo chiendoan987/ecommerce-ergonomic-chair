@@ -1,0 +1,75 @@
+@startuml
+!theme plain
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 12
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam roundCorner 8
+left to right direction
+
+skinparam actor {
+    BackgroundColor #FEF3C7
+    BorderColor #D97706
+    FontColor #1E293B
+    FontStyle bold
+}
+
+skinparam usecase {
+    BackgroundColor #EFF6FF
+    BorderColor #2563EB
+    BorderThickness 1.2
+    FontColor #0F172A
+    ArrowColor #2563EB
+}
+
+skinparam rectangle {
+    BackgroundColor #F8FAFC
+    BorderColor #64748B
+    FontColor #0F172A
+    FontStyle bold
+}
+
+skinparam note {
+    BackgroundColor #FFFBEB
+    BorderColor #F59E0B
+    FontColor #92400E
+    FontSize 11
+}
+
+
+title USE CASE UC-AD01: GIÁM SÁT DASHBOARD KPI & DOANH THU
+
+actor "Quản trị viên" as Admin
+
+rectangle "Phân Hệ Quản Trị (Admin Dashboard)" {
+    usecase "UC-AD01: Giám sát Dashboard KPI & Doanh thu" as AD01
+    usecase "Xem 4 thẻ chỉ số KPI tổng quan" as Sub_Cards
+    usecase "Xem biểu đồ sóng doanh thu 7 ngày" as Sub_RevenueChart
+    usecase "Xem danh sách đơn hàng mới tiếp nhận" as Sub_RecentOrders
+    usecase "Xem bảng xếp hạng Top sản phẩm bán chạy" as Sub_TopProducts
+    usecase "Tự động loại trừ đơn hủy (BR-05)" as Sub_ExcludeCancel
+}
+
+Admin --> AD01
+
+AD01 .> Sub_Cards : <<include>>
+AD01 .> Sub_RevenueChart : <<include>>
+AD01 .> Sub_RecentOrders : <<include>>
+AD01 .> Sub_TopProducts : <<include>>
+Sub_Cards .> Sub_ExcludeCancel : <<include>>
+
+note right of Sub_Cards
+  4 thẻ KPI:
+  1. Tổng doanh thu thực tế
+  2. Tổng số đơn hàng (5 trạng thái)
+  3. Tổng sản phẩm (Còn / Hết hàng)
+  4. Tổng người dùng hệ thống
+end note
+
+note right of Sub_ExcludeCancel
+  BR-05: Đơn hàng ở trạng thái 'cancelled'
+  tuyệt đối không được tính vào
+  tổng doanh thu kinh doanh
+end note
+
+@enduml

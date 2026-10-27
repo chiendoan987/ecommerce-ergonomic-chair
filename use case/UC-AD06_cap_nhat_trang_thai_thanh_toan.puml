@@ -1,0 +1,70 @@
+@startuml
+!theme plain
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 12
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam roundCorner 8
+left to right direction
+
+skinparam actor {
+    BackgroundColor #FEF3C7
+    BorderColor #D97706
+    FontColor #1E293B
+    FontStyle bold
+}
+
+skinparam usecase {
+    BackgroundColor #EFF6FF
+    BorderColor #2563EB
+    BorderThickness 1.2
+    FontColor #0F172A
+    ArrowColor #2563EB
+}
+
+skinparam rectangle {
+    BackgroundColor #F8FAFC
+    BorderColor #64748B
+    FontColor #0F172A
+    FontStyle bold
+}
+
+skinparam note {
+    BackgroundColor #FFFBEB
+    BorderColor #F59E0B
+    FontColor #92400E
+    FontSize 11
+}
+
+
+title USE CASE UC-AD06: CẬP NHẬT TRẠNG THÁI THANH TOÁN
+
+actor "Quản trị viên" as Admin
+
+rectangle "Phân Hệ Quản Trị (Payment Audit & Operations)" {
+    usecase "UC-AD06: Cập nhật trạng thái thanh toán" as AD06
+    usecase "Xem trạng thái thanh toán hiện tại" as Sub_ViewStatus
+    usecase "Chuyển trạng thái Chưa thanh toán -> Đã thanh toán" as Sub_MarkPaid
+    usecase "Chuyển trạng thái Đã thanh toán -> Chưa thanh toán" as Sub_MarkUnpaid
+    usecase "Đối soát dòng tiền thanh toán COD / Chuyển khoản" as Sub_Audit
+    usecase "Cập nhật trường paymentStatus trong MySQL" as Sub_UpdateDB
+}
+
+Admin --> AD06
+
+AD06 .> Sub_ViewStatus : <<include>>
+AD06 .> Sub_Audit : <<include>>
+
+Sub_MarkPaid .> AD06 : <<extend>>
+Sub_MarkUnpaid .> AD06 : <<extend>>
+
+Sub_MarkPaid .> Sub_UpdateDB : <<include>>
+Sub_MarkUnpaid .> Sub_UpdateDB : <<include>>
+
+note right of Sub_Audit
+  Hỗ trợ thủ kho & kế toán đối soát
+  sau khi đơn vị vận chuyển thu tiền COD
+  hoặc nhận được tin báo biến động số dư
+end note
+
+@enduml

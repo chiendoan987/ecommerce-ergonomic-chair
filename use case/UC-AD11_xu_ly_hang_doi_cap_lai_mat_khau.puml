@@ -1,0 +1,70 @@
+@startuml
+!theme plain
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 12
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam roundCorner 8
+left to right direction
+
+skinparam actor {
+    BackgroundColor #FEF3C7
+    BorderColor #D97706
+    FontColor #1E293B
+    FontStyle bold
+}
+
+skinparam usecase {
+    BackgroundColor #EFF6FF
+    BorderColor #2563EB
+    BorderThickness 1.2
+    FontColor #0F172A
+    ArrowColor #2563EB
+}
+
+skinparam rectangle {
+    BackgroundColor #F8FAFC
+    BorderColor #64748B
+    FontColor #0F172A
+    FontStyle bold
+}
+
+skinparam note {
+    BackgroundColor #FFFBEB
+    BorderColor #F59E0B
+    FontColor #92400E
+    FontSize 11
+}
+
+
+title USE CASE UC-AD11: XỬ LÝ HÀNG ĐỢI CẤP LẠI MẬT KHẨU
+
+actor "Quản trị viên" as Admin
+
+rectangle "Phân Hệ Quản Trị (Password Reset Queue Service)" {
+    usecase "UC-AD11: Xử lý hàng đợi cấp lại mật khẩu" as AD11
+    usecase "Xem danh sách yêu cầu (Lọc Pending/Done/Rejected)" as Sub_ViewQueue
+    usecase "Phê duyệt & Cấp mật khẩu mới" as Sub_Approve
+    usecase "Từ chối yêu cầu & Nhập lý do phản hồi" as Sub_Reject
+    usecase "Tự động sinh mật khẩu ngẫu nhiên độ bảo mật cao" as Sub_GenPass
+    usecase "Băm mật khẩu mới bằng PBKDF2 & Lưu MySQL" as Sub_SaveHash
+    usecase "Hiển thị hộp thoại sao chép mật khẩu 1-chạm" as Sub_CopyDialog
+}
+
+Admin --> AD11
+
+AD11 .> Sub_ViewQueue : <<include>>
+Sub_Approve .> AD11 : <<extend>>
+Sub_Reject .> AD11 : <<extend>>
+
+Sub_Approve .> Sub_GenPass : <<include>>
+Sub_Approve .> Sub_SaveHash : <<include>>
+Sub_Approve .> Sub_CopyDialog : <<include>>
+
+note right of Sub_CopyDialog
+  Admin sao chép mật khẩu mới
+  để gửi cho khách qua Email/SMS/Zalo
+  đã đăng ký
+end note
+
+@enduml

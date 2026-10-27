@@ -1,0 +1,75 @@
+@startuml
+!theme plain
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 12
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam roundCorner 8
+left to right direction
+
+skinparam actor {
+    BackgroundColor #FEF3C7
+    BorderColor #D97706
+    FontColor #1E293B
+    FontStyle bold
+}
+
+skinparam usecase {
+    BackgroundColor #EFF6FF
+    BorderColor #2563EB
+    BorderThickness 1.2
+    FontColor #0F172A
+    ArrowColor #2563EB
+}
+
+skinparam rectangle {
+    BackgroundColor #F8FAFC
+    BorderColor #64748B
+    FontColor #0F172A
+    FontStyle bold
+}
+
+skinparam note {
+    BackgroundColor #FFFBEB
+    BorderColor #F59E0B
+    FontColor #92400E
+    FontSize 11
+}
+
+
+title USE CASE UC-AD02: QUẢN LÝ SẢN PHẨM TOÀN DIỆN (CRUD)
+
+actor "Quản trị viên" as Admin
+actor "Máy chủ lưu trữ Media" as MediaServer <<system>>
+
+rectangle "Phân Hệ Quản Trị (Product Lifecycle Management)" {
+    usecase "UC-AD02: Quản lý sản phẩm toàn diện" as AD02
+    usecase "Xem danh sách & Lọc sản phẩm" as Sub_List
+    usecase "Thêm mới sản phẩm" as Sub_Create
+    usecase "Chỉnh sửa thông tin sản phẩm" as Sub_Edit
+    usecase "Xóa sản phẩm an toàn" as Sub_Delete
+    usecase "UC-AD12: Tải lên 5 ảnh sản phẩm" as AD12
+    usecase "Tải lên hoặc nhúng Video YouTube" as Sub_Video
+    usecase "Nhập bảng thông số kỹ thuật đa chiều (Specs)" as Sub_Specs
+    usecase "Xác thực ràng buộc khóa ngoại trước khi xóa" as Sub_GuardDelete
+}
+
+Admin --> AD02
+
+AD02 .> Sub_List : <<include>>
+Sub_Create .> AD02 : <<extend>>
+Sub_Edit .> AD02 : <<extend>>
+Sub_Delete .> AD02 : <<extend>>
+
+Sub_Create .> AD12 : <<include>>
+Sub_Edit .> AD12 : <<include>>
+Sub_Create .> Sub_Specs : <<include>>
+Sub_Edit .> Sub_Specs : <<include>>
+
+Sub_Video .> Sub_Create : <<extend>>
+Sub_Video .> Sub_Edit : <<extend>>
+Sub_GuardDelete .> Sub_Delete : <<include>>
+
+AD12 --> MediaServer
+
+@enduml

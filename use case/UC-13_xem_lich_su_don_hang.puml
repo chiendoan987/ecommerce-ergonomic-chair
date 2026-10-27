@@ -1,0 +1,64 @@
+@startuml
+!theme plain
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 12
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam roundCorner 8
+left to right direction
+
+skinparam actor {
+    BackgroundColor #FEF3C7
+    BorderColor #D97706
+    FontColor #1E293B
+    FontStyle bold
+}
+
+skinparam usecase {
+    BackgroundColor #EFF6FF
+    BorderColor #2563EB
+    BorderThickness 1.2
+    FontColor #0F172A
+    ArrowColor #2563EB
+}
+
+skinparam rectangle {
+    BackgroundColor #F8FAFC
+    BorderColor #64748B
+    FontColor #0F172A
+    FontStyle bold
+}
+
+skinparam note {
+    BackgroundColor #FFFBEB
+    BorderColor #F59E0B
+    FontColor #92400E
+    FontSize 11
+}
+
+
+title USE CASE UC-13: XEM LỊCH SỬ ĐƠN HÀNG CÁ NHÂN
+
+actor "Khách hàng thành viên" as Customer
+
+rectangle "Hệ Thống Storefront (Order History)" {
+    usecase "UC-13: Xem lịch sử đơn hàng cá nhân" as UC13
+    usecase "Xem danh sách các đơn đã đặt" as Sub_ListOrders
+    usecase "Lọc đơn theo trạng thái xử lý" as Sub_FilterStatus
+    usecase "Xem chi tiết kiện hàng & sản phẩm" as Sub_OrderDetail
+    usecase "Theo dõi tiến độ vận chuyển đơn" as Sub_TrackOrder
+}
+
+Customer --> UC13
+
+UC13 .> Sub_ListOrders : <<include>>
+Sub_FilterStatus .> Sub_ListOrders : <<extend>>
+Sub_OrderDetail .> Sub_ListOrders : <<extend>>
+Sub_TrackOrder .> Sub_OrderDetail : <<extend>>
+
+note right of Sub_ListOrders
+  Truy vấn trực tiếp các đơn hàng
+  gắn với userId của phiên đăng nhập
+end note
+
+@enduml

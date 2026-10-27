@@ -1,0 +1,69 @@
+@startuml
+!theme plain
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 12
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam roundCorner 8
+left to right direction
+
+skinparam actor {
+    BackgroundColor #FEF3C7
+    BorderColor #D97706
+    FontColor #1E293B
+    FontStyle bold
+}
+
+skinparam usecase {
+    BackgroundColor #EFF6FF
+    BorderColor #2563EB
+    BorderThickness 1.2
+    FontColor #0F172A
+    ArrowColor #2563EB
+}
+
+skinparam rectangle {
+    BackgroundColor #F8FAFC
+    BorderColor #64748B
+    FontColor #0F172A
+    FontStyle bold
+}
+
+skinparam note {
+    BackgroundColor #FFFBEB
+    BorderColor #F59E0B
+    FontColor #92400E
+    FontSize 11
+}
+
+
+title USE CASE UC-AD07: XEM HỒ SƠ KHÁCH HÀNG 360 & CLV
+
+actor "Quản trị viên" as Admin
+
+rectangle "Phân Hệ Quản Trị (Customer 360 Analytics)" {
+    usecase "UC-AD07: Xem hồ sơ khách hàng 360 & CLV" as AD07
+    usecase "Xem danh sách khách hàng & ngày đăng ký" as Sub_ListCustomers
+    usecase "Mở Customer 360 View Modal" as Sub_Modal360
+    usecase "Xem tính toán giá trị vòng đời (CLV)" as Sub_CLV
+    usecase "Xem danh sách sổ địa chỉ đã lưu của khách" as Sub_AddressList
+    usecase "Xem toàn bộ lịch sử đơn hàng của khách" as Sub_CustomerOrders
+}
+
+Admin --> AD07
+
+AD07 .> Sub_ListCustomers : <<include>>
+Sub_Modal360 .> Sub_ListCustomers : <<extend>>
+
+Sub_Modal360 .> Sub_CLV : <<include>>
+Sub_Modal360 .> Sub_AddressList : <<include>>
+Sub_Modal360 .> Sub_CustomerOrders : <<include>>
+
+note right of Sub_CLV
+  Customer Lifetime Value (CLV):
+  Tự động cộng dồn doanh số từ
+  toàn bộ đơn hàng 'completed'
+  mà khách đã thực hiện
+end note
+
+@enduml

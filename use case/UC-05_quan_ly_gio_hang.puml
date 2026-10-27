@@ -1,0 +1,80 @@
+@startuml
+!theme plain
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 12
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam roundCorner 8
+left to right direction
+
+skinparam actor {
+    BackgroundColor #FEF3C7
+    BorderColor #D97706
+    FontColor #1E293B
+    FontStyle bold
+}
+
+skinparam usecase {
+    BackgroundColor #EFF6FF
+    BorderColor #2563EB
+    BorderThickness 1.2
+    FontColor #0F172A
+    ArrowColor #2563EB
+}
+
+skinparam rectangle {
+    BackgroundColor #F8FAFC
+    BorderColor #64748B
+    FontColor #0F172A
+    FontStyle bold
+}
+
+skinparam note {
+    BackgroundColor #FFFBEB
+    BorderColor #F59E0B
+    FontColor #92400E
+    FontSize 11
+}
+
+
+title USE CASE UC-05: QUẢN LÝ GIỎ HÀNG MUA SẮM
+
+actor "Khách vãng lai" as Guest
+actor "Khách hàng thành viên" as Customer
+
+Customer --|> Guest : <<generalization>>
+
+rectangle "Hệ Thống Storefront (Cart Management)" {
+    usecase "UC-05: Quản lý giỏ hàng" as UC05
+    usecase "Thêm sản phẩm vào giỏ" as Sub_Add
+    usecase "Tăng / Giảm số lượng món" as Sub_ChangeQty
+    usecase "Xóa sản phẩm khỏi giỏ" as Sub_RemoveItem
+    usecase "Xóa toàn bộ giỏ hàng" as Sub_ClearCart
+    usecase "Xem chi tiết giỏ hàng" as Sub_ViewCart
+    usecase "Kiểm tra ràng buộc tồn kho (BR-01)" as Sub_CheckStock
+    usecase "Tự động tính tạm tính & tiền ship" as Sub_CalcSubtotal
+}
+
+Guest --> UC05
+
+UC05 .> Sub_Add : <<include>>
+UC05 .> Sub_ChangeQty : <<include>>
+UC05 .> Sub_RemoveItem : <<include>>
+UC05 .> Sub_ViewCart : <<include>>
+UC05 .> Sub_CheckStock : <<include>>
+UC05 .> Sub_CalcSubtotal : <<include>>
+
+Sub_ClearCart .> Sub_ViewCart : <<extend>>
+
+note right of Sub_CheckStock
+  BR-01: Chặn tuyệt đối hành vi thêm
+  vào giỏ nếu sản phẩm inStock=false
+  hoặc stockQuantity = 0
+end note
+
+note bottom of UC05
+  Đồng bộ realtime giữa các tab
+  thông qua ergochair-cart LocalStorage
+end note
+
+@enduml
